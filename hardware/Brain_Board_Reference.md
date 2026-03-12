@@ -5,13 +5,15 @@
 | Property | Value |
 |---|---|
 | Chip | ESP32-C6-MINI-1-N4 |
-| Architecture | RISC-V single core |
+| Architecture | RISC-V dual core (HP core 160 MHz + LP core 20 MHz) |
 | Clock | 160 MHz |
 | Flash | 4 MB |
 | RAM | 512 KB |
 | WiFi | 802.11 b/g/n/ax (2.4 GHz) + ESP-NOW LR |
 | Bluetooth | BLE 5.0 |
 | Logic Level | 3.3V — GPIO pins NOT 5V tolerant |
+
+> The HP core runs all Arduino firmware. The LP core is a secondary low-power processor that can operate independently while the HP core sleeps — see [ESP32-C6 Unexplored Capabilities](../docs/ESP32C6_Capabilities.md).
 
 ---
 
