@@ -103,6 +103,7 @@ All external API calls are browser-side — the board serves only the dashboard 
 | 4 | Tier 1 cloud relay via automato.ag | Planned |
 | — | mDNS (`brainboard.local`) | Planned |
 | — | automato.ag data relay + remote access | Planned |
+| — | ESP32-C6 unexplored capabilities (LP core, BLE, TWT, Zigbee, pulse counter) | [See exploration notes](docs/ESP32C6_Capabilities.md) |
 
 ---
 
