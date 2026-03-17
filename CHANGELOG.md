@@ -4,7 +4,23 @@ All notable changes to Brain Board firmware are documented here.
 
 ---
 
+## Tools
+
+### I2C_Scanner — v1.0
+- Generic I2C bus scanner for Brain Board V2.0
+- Scans all 127 possible addresses
+- Labels all known onboard devices (SHTC3, TSL2591) and all 8 possible TCA9534 addresses
+- Any unknown device reported with its address
+- Brain Board specific: Wire.begin(6, 7) for SDA=IO6, SCL=IO7
+
+---
+
 ## Host Firmware
+
+### v0.6.1 — TCA9534 Address Fix
+- Fixed TCA9534 I2C address from 0x20 to 0x27
+- SparkFun Qwiic GPIO board has all address jumpers bridged by default (A0=1, A1=1, A2=1)
+- Discovered via I2C scanner diagnostic
 
 ### v0.6 — Relay Control
 - Added relay control via SparkFun Qwiic GPIO (TCA9534) at I2C 0x20

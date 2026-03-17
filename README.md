@@ -98,11 +98,18 @@ All external API calls are browser-side — the board serves only the dashboard 
 | Stage | Feature | Status |
 |---|---|---|
 | 1 | Manual relay control via Qwiic GPIO | ✅ Complete |
-| 2 | Tier 3 offline rule engine (NVS storage) | 🔜 Next |
-| 3 | Tier 2 browser-based rule builder UI | Planned |
-| 4 | Tier 1 cloud relay via automato.ag | Planned |
+| 2 | I2C scanner panel in dashboard | 🔜 Planned v0.6.2 |
+| 3 | OTA firmware update panel + LittleFS migration | Planned v0.7 |
+| 4 | AP mode first-boot provisioning + base firmware | Planned v0.8 |
+| 5 | Tier 3 offline rule engine (NVS storage) | Planned |
+| 6 | Tier 2 browser-based rule builder UI | Planned |
+| 7 | Tier 1 cloud relay via automato.ag | Planned |
+| 8 | ESP-Mesh-Lite multi-board networking | Planned |
 | — | mDNS (`brainboard.local`) | Planned |
-| — | automato.ag data relay + remote access | Planned |
+| — | BLE provisioning | Planned |
+| — | ESP32-C6 unexplored capabilities (LP core, BLE, TWT, Zigbee, pulse counter) | [See exploration notes](docs/ESP32C6_Capabilities.md) |
+
+See [`docs/Roadmap.md`](docs/Roadmap.md) for full architecture, decisions, and platform roadmap.
 
 ---
 
@@ -112,18 +119,25 @@ All external API calls are browser-side — the board serves only the dashboard 
 Brain-Board/
 ├── README.md
 ├── CHANGELOG.md
+├── LICENSE
 ├── .gitignore
 ├── firmware/
 │   ├── BrainBoard_Host/
-│   │   └── BrainBoard_Host_v0.6.ino
+│   │   ├── BrainBoard_Host_v0.6.ino
+│   │   └── BrainBoard_Host_v0.6.1.ino
 │   └── BrainBoard_Remote/
 │       └── BrainBoard_Remote_v0.4.ino
 ├── hardware/
 │   └── Brain_Board_Reference.md
-└── docs/
-    ├── QuickStart.md
-    ├── RelayControl.md
-    └── AgriDataSidebar.md
+├── docs/
+│   ├── Roadmap.md
+│   ├── QuickStart.md
+│   ├── RelayControl.md
+│   ├── AgriDataSidebar.md
+│   └── ESP32C6_Capabilities.md
+└── tools/
+    └── I2C_Scanner/
+        └── I2C_Scanner.ino
 ```
 
 ---
