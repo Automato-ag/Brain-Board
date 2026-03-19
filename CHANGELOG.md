@@ -17,6 +17,20 @@ All notable changes to Brain Board firmware are documented here.
 
 ## Host Firmware
 
+### v0.7 — LittleFS + OTA
+- Dashboard HTML moved from PROGMEM to LittleFS — firmware and webapp update independently
+- Self-seeding: on first boot, firmware formats LittleFS and writes webapp files from PROGMEM — no external flash tool needed
+- Added `/update` OTA browser UI (served from PROGMEM, always available even if LittleFS fails)
+- Added `/update/firmware` endpoint — accepts compiled sketch `.bin`
+- Added `/update/filesystem` endpoint — accepts LittleFS image `.bin`
+- Added `/version` endpoint returning firmware version, webapp version, and LittleFS status
+- Added `data/` folder alongside sketch containing `index.html` and `version.txt`
+- Added explicit `PIN_SDA=6`, `PIN_SCL=7`, `PIN_LED_B=23`, `PIN_LED_R=22` defines — board-package-agnostic
+- OTA success message shows countdown and auto-redirects to dashboard
+- Requires `partitions.csv` (included in sketch folder)
+- Arduino IDE: Tools → USB CDC On Boot → Enabled (required for serial output)
+- Arduino IDE: Tools → Partition Scheme → Custom (required for OTA + LittleFS partition layout)
+
 ### v0.6.1 — TCA9534 Address Fix
 - Fixed TCA9534 I2C address from 0x20 to 0x27
 - SparkFun Qwiic GPIO board has all address jumpers bridged by default (A0=1, A1=1, A2=1)
@@ -65,8 +79,9 @@ All notable changes to Brain Board firmware are documented here.
 
 ## Remote Firmware
 
-### v0.4 — WiFi Fix (matches Host v0.4)
+### v0.4 — WiFi Fix + Pin Defines
 - Aligned with Host ESP-NOW LR setup order fix
+- Added explicit `PIN_SDA=6`, `PIN_SCL=7`, `PIN_LED_B=23`, `PIN_LED_R=22` defines — board-package-agnostic
 
 ### v0.3 — Callback Fix (matches Host v0.3)
 - Fixed send callback signature for ESP-IDF v5.5+
