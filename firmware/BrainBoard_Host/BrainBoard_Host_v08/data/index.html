@@ -486,6 +486,21 @@
   .status-pill.live .dot { background: var(--ok); box-shadow: 0 0 7px var(--ok); animation: pulse 2s infinite; }
   .status-pill.err  { color: var(--err); border-color: rgba(255,77,109,0.25); }
   .status-pill.err  .dot { background: var(--err); }
+  .status-pill.setup { color: var(--b2); border-color: rgba(255,159,67,0.25); }
+  .status-pill.setup .dot { background: var(--b2); animation: pulse 2s infinite; }
+  .setup-banner {
+    display: none;
+    background: rgba(255,159,67,0.08); border: 1px solid rgba(255,159,67,0.25);
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 18px;
+    font-size: 0.7rem; color: var(--b2); line-height: 1.7;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .setup-banner a {
+    background: var(--b2); color: #000; border-radius: 6px;
+    padding: 6px 12px; font-size: 0.65rem; font-weight: 700;
+    text-decoration: none; white-space: nowrap; flex-shrink: 0;
+  }
+  .setup-banner a:hover { background: #ffb86c; }
   #error-msg {
     display: none;
     background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.3);
@@ -672,6 +687,15 @@
     </div>
   </div>
 
+  <!-- ── WIFI SETTINGS ── -->
+  <div style="padding:12px 18px 16px;border-top:1px solid var(--border);flex-shrink:0;">
+    <div class="field-label" style="margin-bottom:8px;">Network</div>
+    <div id="wifi-status-label" style="font-size:0.58rem;color:var(--muted);margin-bottom:10px;line-height:1.6;"></div>
+    <button onclick="resetWifi()" style="width:100%;padding:8px;background:transparent;border:1px solid rgba(255,77,109,0.3);border-radius:6px;color:#ff4d6d;font-family:'Space Mono',monospace;font-size:0.6rem;cursor:pointer;letter-spacing:0.05em;">
+      Reset WiFi credentials
+    </button>
+  </div>
+
 </div><!-- /sidebar -->
 
 <!-- ══ MAIN ══ -->
@@ -685,6 +709,12 @@
   </header>
 
   <div id="error-msg"></div>
+
+  <!-- Setup mode banner — shown when not connected to a network -->
+  <div class="setup-banner" id="setup-banner" style="display:none;">
+    <span>📡 Your board is in setup mode — not connected to a network yet.</span>
+    <a href="/setup">Connect to WiFi →</a>
+  </div>
 
   <div class="boards">
     <!-- Board 1 -->
@@ -1053,11 +1083,19 @@ function renderChips() {
 // ═══════════════════════════════════════════════
 // BOARD SENSORS
 // ═══════════════════════════════════════════════
-function setStatus(state) {
+function setStatus(state, label) {
   const el = document.getElementById('conn-status');
   el.className = 'status-pill ' + state;
-  document.getElementById('status-text').textContent =
-    state === 'live' ? 'Live' : state === 'err' ? 'Error' : 'Connecting…';
+  const labels = {
+    live:  '✓ Connected',
+    setup: '⚙ Setup mode',
+    err:   '✗ Offline',
+    '':    'Connecting…'
+  };
+  document.getElementById('status-text').textContent = label || labels[state] || 'Connecting…';
+  // Show/hide setup banner
+  const banner = document.getElementById('setup-banner');
+  if (banner) banner.style.display = (state === 'setup') ? 'flex' : 'none';
 }
 
 function fillBoard(prefix, d, stale) {
@@ -1126,7 +1164,33 @@ async function fetchData() {
   }
 }
 
+async function resetWifi() {
+  if (!confirm('This will clear your WiFi credentials and reboot the board into setup mode. Continue?')) return;
+  try {
+    await fetch('/wifi/reset', { method: 'POST' });
+  } catch(e) {}
+  setStatus('setup');
+  document.getElementById('wifi-status-label').textContent = 'Credentials cleared. Board is rebooting…';
+}
+
+async function fetchVersion() {
+  try {
+    const res  = await fetch('/version');
+    const data = await res.json();
+    const lbl  = document.getElementById('wifi-status-label');
+    if (data.wifiConnected) {
+      lbl.textContent = '📶 Connected · ' + data.mdns;
+    } else if (data.hasCredentials) {
+      lbl.textContent = '⚠ Could not reach stored network.';
+    } else {
+      lbl.textContent = '📡 No network configured.';
+      setStatus('setup');
+    }
+  } catch(e) {}
+}
+
 fetchData();
+fetchVersion();
 setInterval(fetchData, REFRESH_MS);
 </script>
 </body>

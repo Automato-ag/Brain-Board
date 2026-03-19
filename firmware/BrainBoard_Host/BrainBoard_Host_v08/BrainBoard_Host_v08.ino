@@ -1,5 +1,5 @@
 /*
- * BrainBoard_Host_v0.7.ino
+ * BrainBoard_Host_v08.ino
  *
  * Automato Brain Board V2.0 — Host Node (Board 1)
  *
@@ -24,6 +24,17 @@
  *           Added /version endpoint returning firmware + webapp versions.
  *           Requires custom partitions.csv (included in sketch folder).
  *           Arduino IDE: Tools → USB CDC On Boot → Enabled (required for serial).
+ *   v0.8 — WiFi provisioning via NVS (no hardcoded credentials).
+ *           AP+STA simultaneous mode — board always reachable at 192.168.4.1.
+ *           Captive portal + provisioning form at http://192.168.4.1/setup.
+ *           SoftAP name auto-generated from MAC: Automato-XXXX.
+ *           User-configurable board name stored in NVS.
+ *           mDNS: automato-XXXX.local (or user-defined name).
+ *           Boot button (IO9) held 5s at startup → clears credentials.
+ *           Dashboard Reset WiFi button → clears credentials + reboots.
+ *           Dashboard shows friendly connectivity status (not AP/STA jargon).
+ *           /setup endpoint for provisioning form (GET + POST).
+ *           /wifi/reset endpoint for dashboard reset button.
  *
  * Required libraries (Arduino Library Manager):
  *   - Adafruit SHTC3 Library        (search "Adafruit SHTC3")
@@ -31,7 +42,7 @@
  *   - Adafruit BusIO                (install when prompted)
  *   - Adafruit Unified Sensor       (install when prompted)
  *   - SparkFun TCA9534 GPIO Expander (search "SparkFun TCA9534")
- *   Built-in (no install): LittleFS, Update, FS
+ *   Built-in (no install): LittleFS, Update, FS, Preferences, ESPmDNS
  *
  * Arduino IDE settings:
  *   Board:              ESP32C6 Dev Module
@@ -43,6 +54,7 @@
  *   Relay board:   Amazon B0CHFJSNP6 (5V coil, optoisolated, active HIGH)
  *   GPIO expander: SparkFun Qwiic GPIO (TCA9534) at I2C address 0x27
  *   Signal path:   TCA9534 pin 0 → Relay board IN
+ *   Boot button:   IO9 — hold 5s at startup to clear WiFi credentials
  *
  * RELAY BEHAVIOR:
  *   - Defaults OFF at boot, before any init completes
@@ -57,19 +69,26 @@
  *   3. Flash this sketch. On first boot LittleFS will be formatted and
  *      seeded automatically — no separate filesystem upload needed.
  *   4. Open Serial Monitor (115200 baud) + press RESET.
- *      Note the MAC address printed at startup.
- *   5. Paste that MAC into BrainBoard_Remote_v0.4.ino and flash Board 2.
- *   6. Open http://<Board1_IP> in your browser.
+ *   5. Connect phone/laptop to the Automato-XXXX WiFi network.
+ *   6. Open http://192.168.4.1/setup to enter WiFi credentials.
+ *   7. Board joins your network. Access at http://automato-XXXX.local
+ *      or the IP shown in Serial Monitor.
+ *   8. Paste Board 1 MAC into BrainBoard_Remote_v04.ino and flash Board 2.
+ *
+ * RESET WIFI CREDENTIALS:
+ *   - Hold Boot button (IO9) for 5 seconds at startup, OR
+ *   - Use the Reset WiFi button in the dashboard settings
  *
  * OTA UPDATES (after first flash):
  *   - Firmware:  http://<ip>/update → upload new .bin
  *   - Webapp:    http://<ip>/update → upload new LittleFS .bin
- *     (Build LittleFS image: Ctrl+Shift+P → Upload LittleFS, or use
- *      the /update/filesystem endpoint with a pre-built image)
  */
 
 #include <WiFi.h>
 #include <WebServer.h>
+#include <ESPmDNS.h>
+#include <DNSServer.h>
+#include <Preferences.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
 #include <Wire.h>
@@ -83,22 +102,33 @@
 // ─────────────────────────────────────────────
 // Hardware pin definitions
 // ─────────────────────────────────────────────
-#define PIN_SDA   6    // I2C data  — Brain Board V2.0
-#define PIN_SCL   7    // I2C clock — Brain Board V2.0
-#define PIN_LED_B 23   // Blue LED (WiFi connected)
-#define PIN_LED_R 22   // Red LED (error)
+#define PIN_SDA    6    // I2C data  — Brain Board V2.0
+#define PIN_SCL    7    // I2C clock — Brain Board V2.0
+#define PIN_LED_B  23   // Blue LED (WiFi connected)
+#define PIN_LED_R  22   // Red LED (error)
+#define PIN_BOOT   9    // Boot button — hold 5s at startup to clear WiFi credentials
 
 // ─────────────────────────────────────────────
 // Version
 // ─────────────────────────────────────────────
-#define FIRMWARE_VERSION  "0.7.0"
-#define WEBAPP_VERSION    "0.7.0"
+#define FIRMWARE_VERSION  "0.8.0"
+#define WEBAPP_VERSION    "0.8.0"
 
 // ─────────────────────────────────────────────
-// WiFi credentials — change these!
+// NVS namespace
 // ─────────────────────────────────────────────
-const char* WIFI_SSID     = "YOUR_SSID";
-const char* WIFI_PASSWORD = "YOUR_PASSWORD";
+Preferences prefs;
+
+// ─────────────────────────────────────────────
+// WiFi / provisioning state
+// ─────────────────────────────────────────────
+char     wifiSSID[64]     = "";
+char     wifiPassword[64] = "";
+char     boardName[32]    = "";   // user-defined name (drives AP SSID + mDNS)
+char     apSSID[32]       = "";   // Automato-XXXX or custom name
+char     mdnsName[32]     = "";   // automato-XXXX or custom name
+bool     wifiConnected    = false;
+bool     hasCredentials   = false;
 
 // ─────────────────────────────────────────────
 // Filesystem state
@@ -128,6 +158,7 @@ Adafruit_SHTC3   shtc3;
 Adafruit_TSL2591 tsl(2591);
 TCA9534          gpio0;          // Qwiic GPIO expander at 0x20
 WebServer        server(80);
+DNSServer        dnsServer;
 
 // ─────────────────────────────────────────────
 // Board 1 sensor state
@@ -959,6 +990,21 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawhtml(
   .status-pill.live .dot { background: var(--ok); box-shadow: 0 0 7px var(--ok); animation: pulse 2s infinite; }
   .status-pill.err  { color: var(--err); border-color: rgba(255,77,109,0.25); }
   .status-pill.err  .dot { background: var(--err); }
+  .status-pill.setup { color: var(--b2); border-color: rgba(255,159,67,0.25); }
+  .status-pill.setup .dot { background: var(--b2); animation: pulse 2s infinite; }
+  .setup-banner {
+    display: none;
+    background: rgba(255,159,67,0.08); border: 1px solid rgba(255,159,67,0.25);
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 18px;
+    font-size: 0.7rem; color: var(--b2); line-height: 1.7;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .setup-banner a {
+    background: var(--b2); color: #000; border-radius: 6px;
+    padding: 6px 12px; font-size: 0.65rem; font-weight: 700;
+    text-decoration: none; white-space: nowrap; flex-shrink: 0;
+  }
+  .setup-banner a:hover { background: #ffb86c; }
   #error-msg {
     display: none;
     background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.3);
@@ -1145,6 +1191,15 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawhtml(
     </div>
   </div>
 
+  <!-- ── WIFI SETTINGS ── -->
+  <div style="padding:12px 18px 16px;border-top:1px solid var(--border);flex-shrink:0;">
+    <div class="field-label" style="margin-bottom:8px;">Network</div>
+    <div id="wifi-status-label" style="font-size:0.58rem;color:var(--muted);margin-bottom:10px;line-height:1.6;"></div>
+    <button onclick="resetWifi()" style="width:100%;padding:8px;background:transparent;border:1px solid rgba(255,77,109,0.3);border-radius:6px;color:#ff4d6d;font-family:'Space Mono',monospace;font-size:0.6rem;cursor:pointer;letter-spacing:0.05em;">
+      Reset WiFi credentials
+    </button>
+  </div>
+
 </div><!-- /sidebar -->
 
 <!-- ══ MAIN ══ -->
@@ -1158,6 +1213,12 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawhtml(
   </header>
 
   <div id="error-msg"></div>
+
+  <!-- Setup mode banner — shown when not connected to a network -->
+  <div class="setup-banner" id="setup-banner" style="display:none;">
+    <span>📡 Your board is in setup mode — not connected to a network yet.</span>
+    <a href="/setup">Connect to WiFi →</a>
+  </div>
 
   <div class="boards">
     <!-- Board 1 -->
@@ -1526,11 +1587,19 @@ function renderChips() {
 // ═══════════════════════════════════════════════
 // BOARD SENSORS
 // ═══════════════════════════════════════════════
-function setStatus(state) {
+function setStatus(state, label) {
   const el = document.getElementById('conn-status');
   el.className = 'status-pill ' + state;
-  document.getElementById('status-text').textContent =
-    state === 'live' ? 'Live' : state === 'err' ? 'Error' : 'Connecting…';
+  const labels = {
+    live:  '✓ Connected',
+    setup: '⚙ Setup mode',
+    err:   '✗ Offline',
+    '':    'Connecting…'
+  };
+  document.getElementById('status-text').textContent = label || labels[state] || 'Connecting…';
+  // Show/hide setup banner
+  const banner = document.getElementById('setup-banner');
+  if (banner) banner.style.display = (state === 'setup') ? 'flex' : 'none';
 }
 
 function fillBoard(prefix, d, stale) {
@@ -1599,7 +1668,33 @@ async function fetchData() {
   }
 }
 
+async function resetWifi() {
+  if (!confirm('This will clear your WiFi credentials and reboot the board into setup mode. Continue?')) return;
+  try {
+    await fetch('/wifi/reset', { method: 'POST' });
+  } catch(e) {}
+  setStatus('setup');
+  document.getElementById('wifi-status-label').textContent = 'Credentials cleared. Board is rebooting…';
+}
+
+async function fetchVersion() {
+  try {
+    const res  = await fetch('/version');
+    const data = await res.json();
+    const lbl  = document.getElementById('wifi-status-label');
+    if (data.wifiConnected) {
+      lbl.textContent = '📶 Connected · ' + data.mdns;
+    } else if (data.hasCredentials) {
+      lbl.textContent = '⚠ Could not reach stored network.';
+    } else {
+      lbl.textContent = '📡 No network configured.';
+      setStatus('setup');
+    }
+  } catch(e) {}
+}
+
 fetchData();
+fetchVersion();
 setInterval(fetchData, REFRESH_MS);
 </script>
 </body>
@@ -1802,17 +1897,166 @@ void handleUpdateFilesystemDone() {
 // Returns firmware and webapp version as JSON
 // ─────────────────────────────────────────────
 void handleVersion() {
-  char json[128];
+  char json[256];
   snprintf(json, sizeof(json),
-    "{\"firmware\":\"%s\",\"webapp\":\"%s\",\"lfs\":%s}",
+    "{\"firmware\":\"%s\",\"webapp\":\"%s\",\"lfs\":%s,"
+    "\"wifiConnected\":%s,\"hasCredentials\":%s,"
+    "\"apSSID\":\"%s\",\"mdns\":\"%s.local\"}",
     FIRMWARE_VERSION,
     webappVersion,
-    lfsOk ? "true" : "false"
+    lfsOk          ? "true" : "false",
+    wifiConnected  ? "true" : "false",
+    hasCredentials ? "true" : "false",
+    apSSID,
+    mdnsName
   );
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "application/json", json);
 }
 
+
+// ─────────────────────────────────────────────
+// HTTP: /setup  GET — WiFi provisioning form
+// Served from PROGMEM — always available even without LittleFS
+// ─────────────────────────────────────────────
+void handleSetupGet() {
+  String html = F(
+    "<!DOCTYPE html><html><head>"
+    "<meta charset='UTF-8'>"
+    "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+    "<title>Automato Setup</title>"
+    "<style>"
+    "body{font-family:monospace;background:#090b0e;color:#dde3ee;margin:0;padding:24px;}"
+    "h1{color:#00e5ff;font-size:1.4rem;margin-bottom:4px;}"
+    "p{color:#4a5568;font-size:0.8rem;margin-bottom:24px;}"
+    ".card{background:#10141a;border:1px solid #1a2030;border-radius:10px;padding:24px;max-width:400px;}"
+    "label{display:block;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#4a5568;margin-bottom:5px;margin-top:16px;}"
+    "input{width:100%;box-sizing:border-box;background:#090b0e;border:1px solid #1a2030;border-radius:6px;"
+    "padding:10px;color:#dde3ee;font-family:monospace;font-size:0.85rem;outline:none;}"
+    "input:focus{border-color:rgba(0,229,255,0.4);}"
+    "button{margin-top:20px;width:100%;padding:12px;background:#00e5ff;color:#000;border:none;"
+    "border-radius:6px;font-family:monospace;font-size:0.85rem;font-weight:700;cursor:pointer;}"
+    "button:hover{background:#33eeff;}"
+    ".note{font-size:0.6rem;color:#4a5568;margin-top:12px;line-height:1.7;}"
+    "</style></head><body>"
+    "<h1>🌱 Automato Setup</h1>"
+    "<p>Connect your board to your WiFi network.</p>"
+    "<div class='card'>"
+    "<form method='POST' action='/setup'>"
+    "<label>WiFi Network Name (SSID)</label>"
+    "<input type='text' name='ssid' placeholder='Your network name' required>"
+    "<label>WiFi Password</label>"
+    "<div style='position:relative;'>"
+    "<input type='password' name='pass' id='wpass' placeholder='Your password' style='padding-right:44px;'>"
+    "<button type='button' onclick='togglePass()' id='peye'"
+    " style='position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;"
+    "border:none;color:#4a5568;cursor:pointer;font-size:1rem;padding:0;width:auto;margin:0;'>👁</button>"
+    "</div>"
+    "<script>function togglePass(){"
+    "var i=document.getElementById('wpass');"
+    "var b=document.getElementById('peye');"
+    "if(i.type==='password'){i.type='text';b.style.color='#00e5ff';}"
+    "else{i.type='password';b.style.color='#4a5568';}"
+    "}</script>"
+    "<label>Board Name <span style='color:#4a5568'>(optional)</span></label>"
+    "<input type='text' name='name' id='bname' placeholder='e.g. Greenhouse North' maxlength='31'"
+    " oninput=\"validateName(this)\">"
+    "<div id='namewarn' style='color:#ffaa00;font-size:0.65rem;margin-top:6px;display:none;'>"
+    "⚠ Use only letters, numbers, spaces and hyphens.</div>"
+    "<div class='note'>Board name sets your network address:<br>"
+    "e.g. \"Greenhouse North\" → greenhouse-north.local<br>"
+    "Leave blank to use the default: automato-XXXX.local<br><br>To reset WiFi credentials: hold the Boot button for 5&ndash;7 seconds while the board is starting up.</div>"
+    "<button type='button' onclick='submitForm()'>Save &amp; Connect</button>"
+    "</form>"
+    "<script>"
+    "function validateName(el){"
+    "  var bad=/[^a-zA-Z0-9 \\-]/g;"
+    "  var w=document.getElementById('namewarn');"
+    "  w.style.display=bad.test(el.value)?'block':'none';"
+    "}"
+    "function submitForm(){"
+    "  var n=document.getElementById('bname').value;"
+    "  var bad=/[^a-zA-Z0-9 \\-]/g;"
+    "  if(bad.test(n)){document.getElementById('namewarn').style.display='block';return;}"
+    "  document.querySelector('form').submit();"
+    "}"
+    "</script>"
+    "</div>"
+    "</body></html>"
+  );
+  server.send(200, "text/html", html);
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /setup  POST — save credentials to NVS and reboot
+// ─────────────────────────────────────────────
+void handleSetupPost() {
+  if (!server.hasArg("ssid") || server.arg("ssid").length() == 0) {
+    server.send(400, "text/plain", "SSID required.");
+    return;
+  }
+
+  String ssid  = server.arg("ssid");
+  String pass  = server.arg("pass");
+  String bname = server.arg("name");
+  bname.trim();
+
+  prefs.begin("automato", false);
+  prefs.putString("ssid", ssid);
+  prefs.putString("pass", pass);
+  prefs.putString("name", bname);
+  prefs.end();
+
+  Serial.printf("Credentials saved. SSID: %s  Name: %s\n",
+                ssid.c_str(), bname.length() > 0 ? bname.c_str() : "(default)");
+
+  String html = F(
+    "<!DOCTYPE html><html><head>"
+    "<meta charset='UTF-8'>"
+    "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+    "<title>Automato Setup</title>"
+    "<style>"
+    "body{font-family:monospace;background:#090b0e;color:#dde3ee;margin:0;padding:24px;}"
+    "h1{color:#2ddf82;font-size:1.4rem;margin-bottom:4px;}"
+    "p{color:#4a5568;font-size:0.8rem;}"
+    ".card{background:#10141a;border:1px solid #1a2030;border-radius:10px;padding:24px;max-width:400px;}"
+    "</style></head><body>"
+    "<h1>✓ Saved!</h1>"
+    "<div class='card'>"
+    "<p>Your board is connecting to your network now.</p>"
+    "<p style='margin-top:12px;'>Reconnect your device to your regular WiFi network, "
+    "then open your board at its new address.</p>"
+    "<p style='margin-top:12px;color:#00e5ff;' id='cdmsg'>Rebooting in 3 seconds…</p>"
+    "</div>"
+    "<script>"
+    "var s=3;"
+    "var el=document.getElementById('cdmsg');"
+    "var iv=setInterval(function(){"
+    "  s--;"
+    "  if(s>0){el.textContent='Rebooting in '+s+' second'+(s===1?'':'s')+'\u2026';}"
+    "  else{el.textContent='Rebooting… reconnect to your WiFi and open the dashboard.';clearInterval(iv);}"
+    "},1000);"
+    "</script>"
+    "</body></html>"
+  );
+  server.send(200, "text/html", html);
+  delay(3000);
+  ESP.restart();
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /wifi/reset  POST — clear credentials and reboot
+// Called from dashboard Reset WiFi button
+// ─────────────────────────────────────────────
+void handleWifiReset() {
+  prefs.begin("automato", false);
+  prefs.clear();
+  prefs.end();
+  Serial.println("WiFi credentials cleared via dashboard. Rebooting.");
+  server.send(200, "application/json", "{\"ok\":true,\"message\":\"Credentials cleared. Rebooting.\"}");
+  delay(500);
+  ESP.restart();
+}
 
 // ─────────────────────────────────────────────
 // Setup
@@ -1886,31 +2130,123 @@ void setup() {
     Serial.println("OK");
   } else Serial.println("FAILED");
 
-  // ── WiFi — connect first, LR after ───────────
+  // ── Boot button — hold 5s to clear credentials ──
+  // Brief window for user to move finger from Reset to Boot button
+  delay(1500);
+  pinMode(PIN_BOOT, INPUT_PULLUP);
+  Serial.print("Boot button check... ");
+  if (digitalRead(PIN_BOOT) == LOW) {
+    Serial.print("held, waiting 5s to confirm (hold 5-7s)... ");
+    unsigned long held = millis();
+    while (digitalRead(PIN_BOOT) == LOW && millis() - held < 5000) {
+      delay(100);
+      digitalWrite(PIN_LED_R, (millis() / 200) % 2);  // fast red blink
+    }
+    if (millis() - held >= 5000) {
+      prefs.begin("automato", false);
+      prefs.clear();
+      prefs.end();
+      digitalWrite(PIN_LED_R, LOW);
+      Serial.println("credentials cleared. Rebooting.");
+      delay(500);
+      ESP.restart();
+    }
+  }
+  digitalWrite(PIN_LED_R, LOW);
+  Serial.println("OK");
+
+  // ── Load credentials and board name from NVS ──
+  prefs.begin("automato", true);  // read-only
+  String ssid  = prefs.getString("ssid", "");
+  String pass  = prefs.getString("pass", "");
+  String bname = prefs.getString("name", "");
+  prefs.end();
+
+  ssid.toCharArray(wifiSSID,     sizeof(wifiSSID));
+  pass.toCharArray(wifiPassword, sizeof(wifiPassword));
+  bname.toCharArray(boardName,   sizeof(boardName));
+  hasCredentials = (strlen(wifiSSID) > 0);
+
+  // ── WiFi — AP+STA simultaneous ────────────
   WiFi.mode(WIFI_AP_STA);
 
-  Serial.printf("Board 1 MAC: %s\n", WiFi.macAddress().c_str());
-  Serial.printf("Connecting to WiFi: %s\n", WIFI_SSID);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  // ── Derive AP SSID and mDNS hostname from MAC ──
+  // Must read MAC after WiFi.mode() so the radio is initialized
+  String mac     = WiFi.macAddress();
+  String macSufx = mac.substring(12, 14) + mac.substring(15, 17);
+  macSufx.toUpperCase();
+  macSufx.replace(":", "");
 
-  int tries = 0;
-  while (WiFi.status() != WL_CONNECTED && tries < 40) {
-    delay(500); Serial.print("."); tries++;
-  }
-  Serial.println();
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.printf("WiFi connected! IP: %s\n", WiFi.localIP().toString().c_str());
-    Serial.printf("Dashboard: http://%s\n", WiFi.localIP().toString().c_str());
-    Serial.printf("Updates:   http://%s/update\n", WiFi.localIP().toString().c_str());
-    digitalWrite(PIN_LED_B, HIGH);
+  if (strlen(boardName) > 0) {
+    // User has set a custom name — use it for both AP and mDNS
+    snprintf(apSSID,   sizeof(apSSID),   "%s", boardName);
+    // mDNS hostname: lowercase, spaces → hyphens
+    String mn = bname;
+    mn.toLowerCase();
+    mn.replace(" ", "-");
+    mn.toCharArray(mdnsName, sizeof(mdnsName));
   } else {
-    Serial.println("WiFi FAILED. Check SSID/password.");
-    for (int i = 0; i < 6; i++) { digitalWrite(PIN_LED_R, HIGH); delay(200); digitalWrite(PIN_LED_R, LOW); delay(200); }
+    snprintf(apSSID,   sizeof(apSSID),   "Automato-%s", macSufx.c_str());
+    snprintf(mdnsName, sizeof(mdnsName), "automato-%s", macSufx.c_str());
+    // lowercase the suffix for mDNS
+    for (int i = 0; mdnsName[i]; i++) mdnsName[i] = tolower(mdnsName[i]);
+  }
+
+  // Start SoftAP (always — this is our permanent fallback interface)
+  // ssid, password, channel, hidden, max_connection
+  bool apOk = WiFi.softAP(apSSID, nullptr, 1, false, 4);
+  delay(200);  // give AP time to fully initialize before reading IP
+  Serial.printf("SoftAP started: %s  channel=1  IP=%s  ok=%d\n",
+                apSSID, WiFi.softAPIP().toString().c_str(), apOk);
+  // Captive portal: respond to all DNS queries with our IP so phones auto-redirect
+  dnsServer.start(53, "*", WiFi.softAPIP());
+
+  Serial.printf("Board 1 MAC: %s\n", WiFi.macAddress().c_str());
+
+  // Attempt STA connection if credentials are stored
+  if (hasCredentials) {
+    Serial.printf("Connecting to WiFi: %s\n", wifiSSID);
+    WiFi.begin(wifiSSID, wifiPassword);
+
+    int tries = 0;
+    while (WiFi.status() != WL_CONNECTED && tries < 40) {
+      delay(500); Serial.print("."); tries++;
+    }
+    Serial.println();
+
+    if (WiFi.status() == WL_CONNECTED) {
+      wifiConnected = true;
+      Serial.printf("WiFi connected! IP: %s\n", WiFi.localIP().toString().c_str());
+      Serial.printf("Dashboard: http://%s\n",   WiFi.localIP().toString().c_str());
+      Serial.printf("Dashboard: http://%s.local\n", mdnsName);
+      Serial.printf("Updates:   http://%s/update\n", WiFi.localIP().toString().c_str());
+      digitalWrite(PIN_LED_B, HIGH);
+
+      // Start mDNS
+      if (MDNS.begin(mdnsName)) {
+        MDNS.addService("http", "tcp", 80);
+        Serial.printf("mDNS: http://%s.local\n", mdnsName);
+      } else {
+        Serial.println("mDNS failed to start.");
+      }
+    } else {
+      Serial.println("WiFi connection failed. Running in setup mode.");
+      for (int i = 0; i < 6; i++) {
+        digitalWrite(PIN_LED_R, HIGH); delay(200);
+        digitalWrite(PIN_LED_R, LOW);  delay(200);
+      }
+    }
+  } else {
+    Serial.println("No WiFi credentials stored. Running in setup mode.");
+    Serial.println("Connect to: " + String(apSSID));
+    Serial.println("Then open:  http://192.168.4.1/setup");
   }
 
   // ── LR on AP only, after WiFi connects ───────
-  esp_wifi_set_protocol(WIFI_IF_AP, WIFI_PROTOCOL_LR);
+  // AP stays on standard 802.11b/g/n — LR is Espressif-only, invisible to phones/laptops
+  // esp_wifi_set_protocol(WIFI_IF_AP, WIFI_PROTOCOL_LR);  // REMOVED
+  // Enable LR on STA interface for ESP-NOW long range
+  esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR);
 
   // ── ESP-NOW ───────────────────────────────────
   if (esp_now_init() != ESP_OK) {
@@ -1926,11 +2262,19 @@ void setup() {
   server.on("/version",                   handleVersion);
   server.on("/relay",                     handleRelay);
   server.on("/relay/status",              handleRelayStatus);
+  server.on("/setup",          HTTP_GET,  handleSetupGet);
+  server.on("/setup",          HTTP_POST, handleSetupPost);
+  server.on("/wifi/reset",     HTTP_POST, handleWifiReset);
   server.on("/update",         HTTP_GET,  handleUpdatePage);
   server.on("/update/firmware", HTTP_POST,
     handleUpdateFirmwareDone, handleUpdateFirmware);
   server.on("/update/filesystem", HTTP_POST,
     handleUpdateFilesystemDone, handleUpdateFilesystem);
+  // Captive portal: redirect any unrecognised URL to /setup
+  server.onNotFound([](){
+    server.sendHeader("Location", "http://192.168.4.1/setup", true);
+    server.send(302, "text/plain", "");
+  });
   server.begin();
 
   Serial.println("Web server started.");
@@ -1939,6 +2283,9 @@ void setup() {
   Serial.println("  GET  /version             → firmware + webapp version");
   Serial.println("  GET  /relay               → relay control");
   Serial.println("  GET  /relay/status        → relay state");
+  Serial.println("  GET  /setup               → WiFi provisioning form");
+  Serial.println("  POST /setup               → save WiFi credentials");
+  Serial.println("  POST /wifi/reset          → clear credentials + reboot");
   Serial.println("  GET  /update              → OTA update UI");
   Serial.println("  POST /update/firmware     → OTA firmware upload");
   Serial.println("  POST /update/filesystem   → OTA webapp upload");
@@ -1948,15 +2295,16 @@ void setup() {
 // Loop
 // ─────────────────────────────────────────────
 void loop() {
+  dnsServer.processNextRequest();
   server.handleClient();
 
   // Rule engine hook — not active in Stage 1
   // evaluateRules() called here in Stage 2 when !manualOverride
   // evaluateRules();
 
-  // Heartbeat blink every 5s
+  // Heartbeat blink every 5s when connected to WiFi
   static unsigned long lastBlink = 0;
-  if (millis() - lastBlink > 5000 && WiFi.status() == WL_CONNECTED) {
+  if (millis() - lastBlink > 5000 && wifiConnected) {
     lastBlink = millis();
     digitalWrite(PIN_LED_B, LOW); delay(60); digitalWrite(PIN_LED_B, HIGH);
   }
