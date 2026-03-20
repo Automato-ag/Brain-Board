@@ -1,6 +1,6 @@
 # Automato Brain Board — Product Roadmap
 
-Last updated: 2026-03-17
+Last updated: 2026-03-19
 
 This document captures the planned development path for the Automato Brain Board
 firmware, dashboard, and automato.ag platform integration. It is a living document
@@ -154,22 +154,24 @@ Migrating the webapp to LittleFS means:
 
 ### Migration Plan
 
-Planned alongside OTA work in v0.7 / v0.8. Existing PROGMEM dashboard
-continues to work until migration is complete.
+Completed in v0.7. Dashboard HTML served from LittleFS. Firmware and webapp update independently via OTA.
 
 ---
 
 ## Firmware Roadmap
 
 ### Stage 2 — Tier 3 Offline Rule Engine
-Next milestone
+Target: v0.9
 
 - Rule builder UI in dashboard sidebar
 - Rules stored in NVS via Arduino Preferences library
-- WiFi failover detection with configurable heartbeat timeout
-- evaluateRules() activated in loop() when offline or no higher tier active
-- /config endpoint for saving/loading rules from dashboard
+- evaluateRules() activated in loop() when manualOverride is false
+- "Auto" mode toggle in dashboard releases manualOverride — rule engine takes over
+- /rules GET/POST endpoints for saving/loading rules
 - Offline mode indicator in dashboard
+- Note: WiFi failover/heartbeat detection deferred to Stage 3 — Tier 2 does not
+  exist yet, so there is nothing to fail over from. manualOverride toggle is the
+  correct mechanism for now.
 
 ### Stage 3 — Tier 2 Browser Rule Engine
 
@@ -178,6 +180,23 @@ Next milestone
 - Sends relay commands to board via existing /relay endpoint
 - Operates on local network without internet
 - Falls back to Tier 3 when browser closed
+
+## v1.0 Shippability Checklist
+
+Everything on this list must be complete before Brain Board ships to users.
+
+- [ ] Hardware auto-detection — I2C scan on boot, results in /data JSON
+- [ ] Stable API surface — all endpoints documented, no breaking changes after v1.0
+- [ ] Pre-built `.bin` on GitHub — users can flash without Arduino IDE
+- [ ] OTA update flow verified end-to-end as a first-time user would experience it:
+      firmware update + filesystem update via /update page, clear UI, version
+      display before and after, board recovers cleanly
+- [ ] OTA update instructions in QuickStart.md — non-technical user can follow
+      without assistance
+- [ ] ESP-Mesh-Lite migration decision made — or explicitly deferred with rationale
+- [ ] Board naming system designed and implemented (requires mesh decision first)
+
+---
 
 ### Stage 4 — Tier 1 Cloud Rule Engine (automato.ag)
 
@@ -192,29 +211,27 @@ Next milestone
 
 ## Dashboard Roadmap
 
+### Completed
+
+- OTA Firmware Update panel — upload compiled .bin from browser ✅ v0.7
+- LittleFS migration — webapp served from filesystem, independent OTA updates ✅ v0.7
+- mDNS support — board reachable at http://boardname.local ✅ v0.8
+- AP mode first-boot provisioning — captive portal, NVS credentials ✅ v0.8
+
 ### Near Term
 
 - I2C Bus Scanner panel — live scan from dashboard, device identification,
   browser-side device database (125+ devices from i2cdevices.org)
-  Planned for v0.6.2
+  Target: v0.8.1 (standalone small release before v0.9)
 
-- OTA Firmware Update panel — upload compiled .bin from browser,
-  progress indicator, version display, password protected
-  Planned for v0.7
-
-- LittleFS migration — move webapp from PROGMEM to filesystem,
-  enable independent webapp + firmware updates
-  Planned for v0.7 / v0.8
-
-- mDNS support — board reachable at http://brainboard.local
-  Planned, no version assigned yet
-
-- AP mode first-boot UI — WiFi provisioning on http://192.168.4.1
-  Planned for base firmware
+- Rule builder UI — Tier 3 offline rule engine, NVS storage, /rules endpoints
+  Target: v0.9
 
 ### Medium Term
 
-- Rule builder UI (Stage 2 + Stage 3 above)
+- Stage 3 — Tier 2 browser rule engine (WiFi failover + heartbeat detection)
+- Board naming system — deferred until after ESP-Mesh-Lite migration decision;
+  each board owns its name in NVS and broadcasts it in payload
 - Multi-board management view
 - Historical sensor data charts (requires data storage)
 - Alert configuration UI
@@ -356,10 +373,11 @@ There is no condition under which a relay defaults ON.
 | v0.4 | WiFi + LR coexistence fix |
 | v0.5 | Agri Data sidebar |
 | v0.6 | Manual relay control (Qwiic GPIO) |
-| v0.6.1 | TCA9534 address fix (0x20 to 0x27) |
-| v0.6.2 | I2C scanner panel in dashboard (planned) |
-| v0.7 | OTA firmware update panel + LittleFS migration (planned) |
-| v0.8 | AP mode first-boot provisioning + base firmware (planned) |
+| v0.6.1 | TCA9534 address fix (0x20 → 0x27) |
+| v0.7 | OTA firmware update + LittleFS migration ✅ |
+| v0.8 | WiFi provisioning, captive portal, mDNS, channel scan ✅ |
+| v0.8.1 | I2C scanner panel in dashboard (next) |
+| v0.9 | Tier 3 offline rule engine — NVS rules, rule builder UI |
 | v1.0 | Base firmware — stable, shippable, pre-installed (target) |
 
 ---

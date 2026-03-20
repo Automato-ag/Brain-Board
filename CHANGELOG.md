@@ -4,29 +4,31 @@ All notable changes to Brain Board firmware are documented here.
 
 ---
 
-## Tools
-
-### I2C_Scanner — v1.0
-- Generic I2C bus scanner for Brain Board V2.0
-- Scans all 127 possible addresses
-- Labels all known onboard devices (SHTC3, TSL2591) and all 8 possible TCA9534 addresses
-- Any unknown device reported with its address
-- Brain Board specific: Wire.begin(6, 7) for SDA=IO6, SCL=IO7
-
----
-
 ## Host Firmware
 
+### v0.8.1 — 2026-03-20
+- Added `GET /i2c-scan` endpoint — scans I2C bus (SDA IO6, SCL IO7), returns JSON array of found addresses
+- Added tab navigation shell to dashboard webapp — fixed top bar with 5 tabs
+- New tabs: Dashboard | I2C Scanner | Devices | Rules | Settings
+- Added I2C Scanner tab — manual scan button, address map grid (0x08–0x77), 125+ device database with identification
+- Sidebar (Relay + Agri Data) now only visible on Dashboard tab
+- Connection status pill moved into tab nav bar
+- TSL2591 (0x29) and SHTC3 (0x70) labeled as Automato Onboard
+- TCA9534 (0x27) correctly labeled as external Qwiic board — not onboard Brain Board PCB
+- DS3231 (0x68) pre-labeled in database as reserved for next Brain Board revision
+- Devices, Rules, and Settings tabs present as placeholder shells
+- Firmware version bumped to 0.8.1
+
 ### v0.8.0 — WiFi Provisioning + mDNS
-- **No more hardcoded credentials** — WiFi SSID and password are entered via captive portal and stored in NVS (survive reboots and OTA updates)
-- **AP+STA mode** — Board 1 always runs a SoftAP (`Automato-XXXX`) alongside its WiFi connection, so the setup page is always reachable at `192.168.4.1`
-- **Captive portal** — phones and laptops auto-open the setup page when connecting to the AP
-- **mDNS** — board is reachable at `boardname.local` (or `automato-XXXX.local` if no name is set)
-- **Custom board name** — set during provisioning; used as AP SSID suffix and mDNS hostname; validated (letters, numbers, spaces, hyphens only)
-- **Boot button credential reset** — hold IO9 for 5 seconds at startup to clear stored credentials and re-enter provisioning mode
+- **No more hardcoded credentials** — WiFi SSID and password entered via captive portal, stored in NVS
+- **AP+STA mode** — Board 1 always runs SoftAP (`Automato-XXXX`) alongside WiFi connection; setup page always reachable at `192.168.4.1`
+- **Captive portal** — phones and laptops auto-open setup page when connecting to AP
+- **mDNS** — board reachable at `boardname.local` (or `automato-XXXX.local` if no name set)
+- **Custom board name** — set during provisioning; used as AP SSID and mDNS hostname; validated (letters, numbers, spaces, hyphens only)
+- **Boot button credential reset** — hold IO9 for 5 seconds at startup to clear stored credentials
 - **Setup UI** — show/hide password toggle; countdown redirect after save; inline validation warning
-- **Captive portal redirect** — `onNotFound` handler redirects any unknown URL to `/setup`
-- **LR protocol fix** — `WIFI_PROTOCOL_LR` moved to STA interface only; AP stays on standard 802.11b/g/n so phones and laptops can see the AP
+- **Captive portal redirect** — `onNotFound` redirects any unknown URL to `/setup`
+- **LR protocol fix** — `WIFI_PROTOCOL_LR` moved to STA interface only; AP stays on standard 802.11b/g/n
 
 ### v0.7.0 — LittleFS + OTA
 - Dashboard HTML moved from PROGMEM to LittleFS — firmware and webapp update independently
@@ -57,20 +59,20 @@ All notable changes to Brain Board firmware are documented here.
 - Active parameters displayed as chips with live values
 - External data refreshes every 60 seconds
 - All API calls browser-side — board code unchanged
-- Sources: Open-Meteo (weather, soil, solar, UV, ET₀, VPD), Sunrise-Sunset.org (sun/moon), Open-Meteo AQI (PM2.5, pollen)
+- Sources: Open-Meteo (weather, soil, solar, UV, ET0, VPD), Sunrise-Sunset.org (sun/moon), Open-Meteo AQI (PM2.5, pollen)
 
 ### v0.4 — WiFi Fix
 - Fixed WiFi connection failure caused by LR protocol being set on STA interface before connecting
-- LR now enabled on AP interface only, after WiFi connects
+- LR now enabled on STA interface only, after WiFi connects
 
 ### v0.3 — ESP-NOW Callback Fix
 - Fixed ESP-NOW send callback signature for ESP-IDF v5.5+
-- `wifi_tx_info_t*` replaces `uint8_t* mac` in send callback
+- wifi_tx_info_t* replaces uint8_t* mac in send callback
 
 ### v0.2 — Two-Board Support
 - Added ESP-NOW LR two-board support
 - Split into Host and Remote sketches
-- Shared `SensorPayload` struct
+- Shared SensorPayload struct
 
 ### v0.1 — Initial Release
 - Single-board sensor web dashboard
@@ -83,17 +85,28 @@ All notable changes to Brain Board firmware are documented here.
 ## Remote Firmware
 
 ### v0.5 — Channel Scan
-- **Automatic channel detection** — scans channels 1–13 at startup, sends a ping on each, locks to whichever channel Board 1 ACKs on; no more hardcoded channel
+- **Automatic channel detection** — scans channels 1-13 at startup, sends ping on each, locks to whichever channel Host ACKs on; no more hardcoded channel
 - **Re-scan on timeout** — if no ACK received for 30 seconds, re-scans all channels automatically
-- **LR protocol fix** — `WIFI_PROTOCOL_LR` moved to STA interface only (matches Host v0.8 fix)
-- Serial output includes locked channel: `Sending → Temp: 24.1°C  Hum: 45.0%  Lux: 88.3  ch:6`
+- **LR protocol fix** — WIFI_PROTOCOL_LR moved to STA interface only (matches Host v0.8 fix)
+- Serial output includes locked channel: Sending > Temp: 24.1C  Hum: 45.0%  Lux: 88.3  ch:6
 
-### v0.4 — WiFi Fix (matches Host v0.4)
+### v0.4 — WiFi Fix
 - Aligned with Host ESP-NOW LR setup order fix
 
-### v0.3 — Callback Fix (matches Host v0.3)
+### v0.3 — Callback Fix
 - Fixed send callback signature for ESP-IDF v5.5+
 
 ### v0.2 — Initial Remote Sketch
 - Reads SHTC3 + TSL2591
-- Sends `SensorPayload` to Host MAC every 3 seconds via ESP-NOW LR
+- Sends SensorPayload to Host MAC every 3 seconds via ESP-NOW LR
+
+---
+
+## Tools
+
+### I2C_Scanner — v1.0
+- Generic I2C bus scanner for Brain Board V2.0
+- Scans all 127 possible addresses
+- Labels known onboard devices (SHTC3, TSL2591) and all 8 possible TCA9534 addresses
+- Any unknown device reported with its address
+- Brain Board specific: Wire.begin(6, 7) for SDA=IO6, SCL=IO7

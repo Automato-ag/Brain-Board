@@ -1,0 +1,2371 @@
+/*
+ * BrainBoard_Host_v08.ino
+ *
+ * Automato Brain Board V2.0 — Host Node (Board 1)
+ *
+ * Changelog:
+ *   v0.1 — Initial single-board sensor web dashboard
+ *   v0.2 — Added two-board ESP-NOW LR support; split into Host + Remote
+ *   v0.3 — Fixed ESP-NOW send callback signature for ESP-IDF v5.5+
+ *           (wifi_tx_info_t* replaces uint8_t* mac in send cb)
+ *   v0.4 — Fixed WiFi connection failure caused by LR mode being set on
+ *           STA interface before connecting. Now connects first, then
+ *           enables LR on AP interface only for ESP-NOW.
+ *   v0.5 — Added Agri Data sidebar: location search, metric/imperial
+ *           toggle, Open-Meteo and Sunrise-Sunset.org parameters.
+ *   v0.6.1 — Fixed TCA9534 I2C address 0x20 → 0x27. Relay defaults OFF.
+ *             Added /relay and /relay/status endpoints. Rule engine stubbed.
+ *   v0.7 — Dashboard HTML moved from PROGMEM to LittleFS.
+ *           Firmware and webapp now update independently via OTA.
+ *           Self-seeding: on first boot, firmware formats LittleFS and
+ *           writes webapp files from PROGMEM. No external flash tool needed.
+ *           Added /update OTA browser UI (served from PROGMEM, always available).
+ *           Added /update/firmware and /update/filesystem OTA endpoints.
+ *           Added /version endpoint returning firmware + webapp versions.
+ *           Requires custom partitions.csv (included in sketch folder).
+ *           Arduino IDE: Tools → USB CDC On Boot → Enabled (required for serial).
+ *   v0.8 — WiFi provisioning via NVS (no hardcoded credentials).
+ *           AP+STA simultaneous mode — board always reachable at 192.168.4.1.
+ *           Captive portal + provisioning form at http://192.168.4.1/setup.
+ *           SoftAP name auto-generated from MAC: Automato-XXXX.
+ *           User-configurable board name stored in NVS.
+ *           mDNS: automato-XXXX.local (or user-defined name).
+ *           Boot button (IO9) held 5s at startup → clears credentials.
+ *           Dashboard Reset WiFi button → clears credentials + reboots.
+ *           Dashboard shows friendly connectivity status (not AP/STA jargon).
+ *           /setup endpoint for provisioning form (GET + POST).
+ *           /wifi/reset endpoint for dashboard reset button.
+ *
+ *   v0.8.1 — Added GET /i2c-scan endpoint.
+ *           Scans I2C bus (SDA IO6, SCL IO7) for connected devices.
+ *           Returns JSON: {"devices":[addr,...]} with decimal addresses.
+ *           Tab navigation shell + I2C Scanner tab added to webapp.
+ *
+ * Required libraries (Arduino Library Manager):
+ *   - Adafruit SHTC3 Library        (search "Adafruit SHTC3")
+ *   - Adafruit TSL2591              (search "Adafruit TSL2591")
+ *   - Adafruit BusIO                (install when prompted)
+ *   - Adafruit Unified Sensor       (install when prompted)
+ *   - SparkFun TCA9534 GPIO Expander (search "SparkFun TCA9534")
+ *   Built-in (no install): LittleFS, Update, FS, Preferences, ESPmDNS
+ *
+ * Arduino IDE settings:
+ *   Board:              ESP32C6 Dev Module
+ *   Partition Scheme:   Custom  (uses partitions.csv in sketch folder)
+ *   USB CDC On Boot:    Enabled
+ *   All other settings: defaults
+ *
+ * HARDWARE:
+ *   Relay board:   Amazon B0CHFJSNP6 (5V coil, optoisolated, active HIGH)
+ *   GPIO expander: SparkFun Qwiic GPIO (TCA9534) at I2C address 0x27
+ *   Signal path:   TCA9534 pin 0 → Relay board IN
+ *   Boot button:   IO9 — hold 5s at startup to clear WiFi credentials
+ *
+ * RELAY BEHAVIOR:
+ *   - Defaults OFF at boot, before any init completes
+ *   - Defaults OFF if TCA9534 init fails
+ *   - Defaults OFF if sensor read fails
+ *   - Manual toggle from dashboard always overrides automation rules
+ *   - Manual override persists until user manually changes it again
+ *
+ * FIRST FLASH:
+ *   1. Copy partitions.csv into the sketch folder alongside this .ino file.
+ *   2. Set Partition Scheme to Custom and USB CDC On Boot to Enabled.
+ *   3. Flash this sketch. On first boot LittleFS will be formatted and
+ *      seeded automatically — no separate filesystem upload needed.
+ *   4. Open Serial Monitor (115200 baud) + press RESET.
+ *   5. Connect phone/laptop to the Automato-XXXX WiFi network.
+ *   6. Open http://192.168.4.1/setup to enter WiFi credentials.
+ *   7. Board joins your network. Access at http://automato-XXXX.local
+ *      or the IP shown in Serial Monitor.
+ *   8. Paste Board 1 MAC into BrainBoard_Remote_v04.ino and flash Board 2.
+ *
+ * RESET WIFI CREDENTIALS:
+ *   - Hold Boot button (IO9) for 5 seconds at startup, OR
+ *   - Use the Reset WiFi button in the dashboard settings
+ *
+ * OTA UPDATES (after first flash):
+ *   - Firmware:  http://<ip>/update → upload new .bin
+ *   - Webapp:    http://<ip>/update → upload new LittleFS .bin
+ */
+
+#include <WiFi.h>
+#include <WebServer.h>
+#include <ESPmDNS.h>
+#include <DNSServer.h>
+#include <Preferences.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
+#include <Wire.h>
+#include <FS.h>
+#include <LittleFS.h>
+#include <Update.h>
+#include "Adafruit_SHTC3.h"
+#include <Adafruit_TSL2591.h>
+#include <SparkFun_TCA9534.h>   // SparkFun TCA9534 GPIO Expander
+
+// ─────────────────────────────────────────────
+// Hardware pin definitions
+// ─────────────────────────────────────────────
+#define PIN_SDA    6    // I2C data  — Brain Board V2.0
+#define PIN_SCL    7    // I2C clock — Brain Board V2.0
+#define PIN_LED_B  23   // Blue LED (WiFi connected)
+#define PIN_LED_R  22   // Red LED (error)
+#define PIN_BOOT   9    // Boot button — hold 5s at startup to clear WiFi credentials
+
+// ─────────────────────────────────────────────
+// Version
+// ─────────────────────────────────────────────
+#define FIRMWARE_VERSION  "0.8.1"
+#define WEBAPP_VERSION    "0.8.1"
+
+// ─────────────────────────────────────────────
+// NVS namespace
+// ─────────────────────────────────────────────
+Preferences prefs;
+
+// ─────────────────────────────────────────────
+// WiFi / provisioning state
+// ─────────────────────────────────────────────
+char     wifiSSID[64]     = "";
+char     wifiPassword[64] = "";
+char     boardName[32]    = "";   // user-defined name (drives AP SSID + mDNS)
+char     apSSID[32]       = "";   // Automato-XXXX or custom name
+char     mdnsName[32]     = "";   // automato-XXXX or custom name
+bool     wifiConnected    = false;
+bool     hasCredentials   = false;
+
+// ─────────────────────────────────────────────
+// Filesystem state
+// ─────────────────────────────────────────────
+bool lfsOk = false;
+char webappVersion[32] = WEBAPP_VERSION;  // read from LittleFS at boot
+
+// ─────────────────────────────────────────────
+// Shared data structure — must match Remote exactly
+// ─────────────────────────────────────────────
+typedef struct {
+  float    tempC;
+  float    tempF;
+  float    humidity;
+  float    lux;
+  uint16_t visible;
+  uint16_t infrared;
+  bool     shtcOk;
+  bool     tslOk;
+  uint32_t uptime;
+} SensorPayload;
+
+// ─────────────────────────────────────────────
+// Hardware objects
+// ─────────────────────────────────────────────
+Adafruit_SHTC3   shtc3;
+Adafruit_TSL2591 tsl(2591);
+TCA9534          gpio0;          // Qwiic GPIO expander at 0x20
+WebServer        server(80);
+DNSServer        dnsServer;
+
+// ─────────────────────────────────────────────
+// Board 1 sensor state
+// ─────────────────────────────────────────────
+float    b1_tempC    = 0.0;
+float    b1_tempF    = 0.0;
+float    b1_humidity = 0.0;
+float    b1_lux      = 0.0;
+uint16_t b1_visible  = 0;
+uint16_t b1_infrared = 0;
+bool     b1_shtcOk   = false;
+bool     b1_tslOk    = false;
+
+// ─────────────────────────────────────────────
+// Board 2 sensor state (ESP-NOW)
+// ─────────────────────────────────────────────
+SensorPayload b2_data         = {};
+bool          b2_everReceived  = false;
+unsigned long b2_lastReceived  = 0;
+char          b2_macStr[18]    = "—";
+#define B2_STALE_MS 15000
+
+// ─────────────────────────────────────────────
+// Relay state
+//
+// Relay index 0 = TCA9534 pin 0 = physical relay board
+//
+// manualOverride: true  → dashboard toggle controls relay;
+//                         rule engine is suppressed
+//                 false → rule engine controls relay (Stage 2+)
+//
+// relayState:     current commanded state of relay 0
+//                 always starts false (OFF)
+// ─────────────────────────────────────────────
+bool     gpioOk         = false;   // TCA9534 init success
+bool     relayState     = false;   // false = OFF, true = ON
+bool     manualOverride = true;    // manual always wins (Stage 1)
+
+// Number of physical relays managed (expandable later)
+#define NUM_RELAYS 1
+
+// ─────────────────────────────────────────────
+// Rule engine — data structures (Stage 2, not yet active)
+//
+// Structs declared here so evalCondition() / evalRule() /
+// applyRelay() can all reference them without forward declarations.
+//
+// Operator values (for op field):
+//   0 = AND  (all conditions must be true)
+//   1 = OR   (any condition must be true)
+//   2 = NOT  (all conditions must be false)
+//   3 = XOR  (exactly one condition must be true)
+//
+// Condition operator values (for condOp):
+//   0 = above (value > threshold)
+//   1 = below (value < threshold)
+//   2 = equals (value == threshold, float tolerance 0.01)
+//
+// Priority: lower number = higher priority (1 = highest)
+// When two rules target the same relay and evaluate
+// differently, the lower priority number wins.
+// ─────────────────────────────────────────────
+#define MAX_CONDITIONS 16
+#define MAX_RULES      16
+
+struct Condition {
+  char    source[32];  // e.g. "b1_tempC", "b1_humidity", "b1_lux"
+  uint8_t condOp;      // 0=above, 1=below, 2=equals
+  float   threshold;
+};
+
+struct Rule {
+  char      name[32];
+  uint8_t   priority;                  // 1 = highest
+  uint8_t   op;                        // 0=AND, 1=OR, 2=NOT, 3=XOR
+  bool      relayTargets[NUM_RELAYS];  // which relays this rule controls
+  bool      relayAction;               // desired relay state when rule fires
+  Condition conditions[MAX_CONDITIONS];
+  uint8_t   conditionCount;
+  bool      enabled;
+};
+
+Rule    rules[MAX_RULES];
+uint8_t ruleCount = 0;
+
+// Apply relayState to hardware. Safe to call any time.
+// If gpioOk is false (expander not found), this is a no-op.
+// SparkFun TCA9534 library uses digitalWrite(), not setPin().
+void applyRelay() {
+  if (!gpioOk) return;
+  gpio0.digitalWrite(0, relayState ? HIGH : LOW);
+}
+
+// Force all relays OFF regardless of state variables.
+// Called on init and any failure condition.
+void forceAllRelaysOff() {
+  relayState = false;
+  if (gpioOk) gpio0.digitalWrite(0, LOW);
+}
+
+// Placeholder — evaluates a single condition against current sensor data.
+// Expand in Stage 2 to cover all data sources.
+bool evalCondition(const Condition& c) {
+  float val = 0.0;
+  bool  found = false;
+
+  if (strcmp(c.source, "b1_tempC")    == 0) { val = b1_tempC;    found = true; }
+  else if (strcmp(c.source, "b1_tempF")    == 0) { val = b1_tempF;    found = true; }
+  else if (strcmp(c.source, "b1_humidity") == 0) { val = b1_humidity; found = true; }
+  else if (strcmp(c.source, "b1_lux")      == 0) { val = b1_lux;      found = true; }
+  else if (strcmp(c.source, "b2_tempC")    == 0) { val = b2_data.tempC;    found = true; }
+  else if (strcmp(c.source, "b2_tempF")    == 0) { val = b2_data.tempF;    found = true; }
+  else if (strcmp(c.source, "b2_humidity") == 0) { val = b2_data.humidity; found = true; }
+  else if (strcmp(c.source, "b2_lux")      == 0) { val = b2_data.lux;      found = true; }
+
+  if (!found) return false;  // unknown source → condition fails safe
+
+  switch (c.condOp) {
+    case 0: return val >  c.threshold;
+    case 1: return val <  c.threshold;
+    case 2: return fabsf(val - c.threshold) < 0.01f;
+    default: return false;
+  }
+}
+
+// Placeholder — evaluates a full rule against current data.
+// Not yet called anywhere in Stage 1.
+bool evalRule(const Rule& r) {
+  if (!r.enabled || r.conditionCount == 0) return false;
+
+  uint8_t trueCount = 0;
+  for (uint8_t i = 0; i < r.conditionCount; i++) {
+    if (evalCondition(r.conditions[i])) trueCount++;
+  }
+
+  switch (r.op) {
+    case 0: return trueCount == r.conditionCount;          // AND
+    case 1: return trueCount > 0;                          // OR
+    case 2: return trueCount == 0;                         // NOT
+    case 3: return trueCount == 1;                         // XOR
+    default: return false;
+  }
+}
+
+// Placeholder — runs all rules, resolves conflicts by priority,
+// applies result to relays. Called from loop() in Stage 2.
+// Skipped entirely if manualOverride is true.
+void evaluateRules() {
+  if (manualOverride) return;
+
+  // For each relay, find the highest-priority enabled rule
+  // that targets it and has fired. Apply its action.
+  for (uint8_t ri = 0; ri < NUM_RELAYS; ri++) {
+    bool   found         = false;
+    bool   winnerAction  = false;
+    uint8_t winnerPrio   = 255;
+
+    for (uint8_t i = 0; i < ruleCount; i++) {
+      if (!rules[i].enabled)           continue;
+      if (!rules[i].relayTargets[ri])  continue;
+      if (!evalRule(rules[i]))         continue;
+      if (rules[i].priority < winnerPrio) {
+        winnerPrio   = rules[i].priority;
+        winnerAction = rules[i].relayAction;
+        found        = true;
+      }
+    }
+
+    // If no rule fired, relay defaults OFF
+    if (ri == 0) {
+      relayState = found ? winnerAction : false;
+    }
+  }
+  applyRelay();
+}
+
+// ─────────────────────────────────────────────
+// ESP-NOW receive callback
+// ─────────────────────────────────────────────
+void onDataReceived(const esp_now_recv_info_t* info, const uint8_t* data, int len) {
+  if (len != sizeof(SensorPayload)) return;
+
+  memcpy(&b2_data, data, sizeof(SensorPayload));
+  b2_everReceived = true;
+  b2_lastReceived = millis();
+
+  snprintf(b2_macStr, sizeof(b2_macStr),
+           "%02X:%02X:%02X:%02X:%02X:%02X",
+           info->src_addr[0], info->src_addr[1], info->src_addr[2],
+           info->src_addr[3], info->src_addr[4], info->src_addr[5]);
+
+  digitalWrite(PIN_LED_B, LOW); delay(60); digitalWrite(PIN_LED_B, HIGH);
+
+  Serial.printf("Board 2 → Temp: %.1f°C  Hum: %.1f%%  Lux: %.1f\n",
+                b2_data.tempC, b2_data.humidity, b2_data.lux);
+}
+
+// ─────────────────────────────────────────────
+// Read Board 1 sensors
+// ─────────────────────────────────────────────
+void readLocalSensors() {
+  sensors_event_t hum_evt, temp_evt;
+  shtc3.getEvent(&hum_evt, &temp_evt);
+  if (!isnan(temp_evt.temperature)) {
+    b1_tempC    = temp_evt.temperature;
+    b1_tempF    = b1_tempC * 9.0 / 5.0 + 32.0;
+    b1_humidity = hum_evt.relative_humidity;
+    b1_shtcOk   = true;
+  } else {
+    b1_shtcOk = false;
+  }
+
+  if (b1_tslOk) {
+    uint32_t lum = tsl.getFullLuminosity();
+    b1_infrared  = lum >> 16;
+    b1_visible   = lum & 0xFFFF;
+    float lux    = tsl.calculateLux(b1_visible, b1_infrared);
+    b1_lux       = (lux < 0) ? 0 : lux;
+  }
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /data  →  JSON (sensors + relay state)
+// ─────────────────────────────────────────────
+void handleData() {
+  readLocalSensors();
+
+  bool b2_stale = !b2_everReceived || ((millis() - b2_lastReceived) > B2_STALE_MS);
+
+  const char* gainLabel = "MED (25x)";
+  switch (tsl.getGain()) {
+    case TSL2591_GAIN_LOW:  gainLabel = "LOW (1x)";    break;
+    case TSL2591_GAIN_MED:  gainLabel = "MED (25x)";   break;
+    case TSL2591_GAIN_HIGH: gainLabel = "HIGH (428x)"; break;
+    case TSL2591_GAIN_MAX:  gainLabel = "MAX (9876x)"; break;
+  }
+
+  char json[1200];
+  snprintf(json, sizeof(json),
+    "{"
+      "\"b1\":{"
+        "\"tempC\":%.2f,\"tempF\":%.2f,\"humidity\":%.2f,"
+        "\"lux\":%.2f,\"visible\":%u,\"infrared\":%u,"
+        "\"shtcOk\":%s,\"tslOk\":%s,\"gain\":\"%s\","
+        "\"uptime\":%lu"
+      "},"
+      "\"b2\":{"
+        "\"tempC\":%.2f,\"tempF\":%.2f,\"humidity\":%.2f,"
+        "\"lux\":%.2f,\"visible\":%u,\"infrared\":%u,"
+        "\"shtcOk\":%s,\"tslOk\":%s,"
+        "\"uptime\":%u,\"stale\":%s,\"mac\":\"%s\","
+        "\"lastSeenMs\":%lu"
+      "},"
+      "\"relay\":{"
+        "\"state\":%s,"
+        "\"manualOverride\":%s,"
+        "\"gpioOk\":%s"
+      "}"
+    "}",
+    b1_tempC, b1_tempF, b1_humidity,
+    b1_lux, b1_visible, b1_infrared,
+    b1_shtcOk ? "true" : "false",
+    b1_tslOk  ? "true" : "false",
+    gainLabel, millis() / 1000,
+    b2_data.tempC, b2_data.tempF, b2_data.humidity,
+    b2_data.lux, b2_data.visible, b2_data.infrared,
+    b2_data.shtcOk ? "true" : "false",
+    b2_data.tslOk  ? "true" : "false",
+    b2_data.uptime,
+    b2_stale ? "true" : "false",
+    b2_macStr,
+    b2_everReceived ? (millis() - b2_lastReceived) : 0,
+    relayState     ? "true" : "false",
+    manualOverride ? "true" : "false",
+    gpioOk         ? "true" : "false"
+  );
+
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(200, "application/json", json);
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /relay  →  set relay state
+//   GET /relay?state=1   → relay ON  (manual override)
+//   GET /relay?state=0   → relay OFF (manual override)
+//   GET /relay?override=auto → clear manual override (Stage 2+)
+// ─────────────────────────────────────────────
+void handleRelay() {
+  if (server.hasArg("override") && server.arg("override") == "auto") {
+    // Release manual override — rule engine takes over (Stage 2)
+    manualOverride = false;
+    forceAllRelaysOff();   // safe default until first rule evaluation
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json",
+      "{\"ok\":true,\"manualOverride\":false,\"state\":false}");
+    Serial.println("Relay: manual override cleared, rule engine active");
+    return;
+  }
+
+  if (server.hasArg("state")) {
+    manualOverride = true;
+    relayState     = (server.arg("state") == "1");
+    applyRelay();
+
+    char resp[80];
+    snprintf(resp, sizeof(resp),
+      "{\"ok\":true,\"manualOverride\":true,\"state\":%s}",
+      relayState ? "true" : "false");
+
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json", resp);
+
+    Serial.printf("Relay: manual → %s\n", relayState ? "ON" : "OFF");
+    return;
+  }
+
+  // No valid args
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(400, "application/json",
+    "{\"ok\":false,\"error\":\"Missing state or override arg\"}");
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /relay/status  →  current relay state JSON
+// ─────────────────────────────────────────────
+void handleRelayStatus() {
+  char resp[100];
+  snprintf(resp, sizeof(resp),
+    "{\"state\":%s,\"manualOverride\":%s,\"gpioOk\":%s}",
+    relayState     ? "true" : "false",
+    manualOverride ? "true" : "false",
+    gpioOk         ? "true" : "false");
+
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(200, "application/json", resp);
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /i2c-scan  →  scan I2C bus, return found addresses
+//
+// Scans addresses 0x08–0x77 (standard I2C range).
+// For each address, calls Wire.beginTransmission() and checks
+// the return value. 0 = device ACKed = present.
+//
+// Response: {"devices":[32,41,112]}  (decimal addresses)
+//           {"devices":[]}            (nothing found)
+//
+// Notes:
+//   - Scan takes ~100ms (128 addresses × short timeout)
+//   - Wire must already be initialized (Wire.begin called in setup)
+//   - Does not disturb sensor state — sensors re-init is not needed
+//   - Known fixed addresses on Brain Board V2.0:
+//       0x29 = TSL2591   (light sensor)
+//       0x27 = TCA9534   (relay GPIO expander, if connected)
+//       0x70 = SHTC3     (temp/humidity sensor)
+//   - 0x68 reserved for DS3231 RTC in next Brain Board revision
+// ─────────────────────────────────────────────
+void handleI2CScan() {
+  String json = "{\"devices\":[";
+  bool   first = true;
+
+  for (uint8_t addr = 0x08; addr <= 0x77; addr++) {
+    Wire.beginTransmission(addr);
+    uint8_t err = Wire.endTransmission();
+
+    if (err == 0) {
+      // Device acknowledged — present on bus
+      if (!first) json += ",";
+      json += String(addr);
+      first = false;
+      Serial.printf("I2C scan: found 0x%02X (%d)\n", addr, addr);
+    }
+    // err 2 = NACK on address (not present) — expected for most addresses
+    // err 3 = NACK on data    — device present but returned error
+    // err 4 = other error     — bus issue
+    // Only err == 0 means a device ACKed cleanly
+  }
+
+  json += "]}";
+
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(200, "application/json", json);
+
+  if (first) {
+    Serial.println("I2C scan complete — no devices found.");
+  } else {
+    Serial.println("I2C scan complete.");
+  }
+}
+
+// ─────────────────────────────────────────────
+// Dashboard HTML — PROGMEM seed for LittleFS
+// Written to LittleFS on first boot if /index.html missing.
+// Subsequent updates via /update/filesystem OTA endpoint.
+// ─────────────────────────────────────────────
+const char DASHBOARD_HTML[] PROGMEM = R"rawhtml(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Automato Brain Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #090b0e;
+    --surface:   #10141a;
+    --border:    #1a2030;
+    --text:      #dde3ee;
+    --muted:     #4a5568;
+    --b1:        #00e5ff;
+    --b2:        #ff9f43;
+    --temp:      #ff6b8a;
+    --hum:       #5de8c1;
+    --lux:       #c8ff57;
+    --ok:        #2ddf82;
+    --err:       #ff4d6d;
+    --agri:      #86efac;
+    --relay-on:  #f59e0b;
+    --relay-off: #334155;
+    --sidebar-w: 290px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: var(--sidebar-w);
+    min-height: 100vh;
+    background: #0c0f14;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+  .sidebar-header {
+    padding: 20px 18px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-header h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--agri);
+    display: flex; align-items: center; gap: 7px;
+  }
+  .sidebar-header p {
+    font-size: 0.57rem;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── RELAY SECTION ── */
+  .relay-section {
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .relay-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .relay-toggle-row:hover { background: rgba(255,255,255,0.02); }
+  .relay-toggle-label {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .relay-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--relay-off);
+    transition: background 0.3s, box-shadow 0.3s;
+    flex-shrink: 0;
+  }
+  .relay-dot.on {
+    background: var(--relay-on);
+    box-shadow: 0 0 8px var(--relay-on);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  .relay-chevron {
+    font-size: 0.55rem;
+    color: var(--muted);
+    transition: transform 0.2s;
+  }
+  .relay-chevron.open { transform: rotate(180deg); }
+
+  .relay-body {
+    padding: 0 18px 16px;
+    display: none;
+  }
+  .relay-body.open { display: block; }
+
+  .relay-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .relay-state-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: 1px solid;
+    transition: all 0.3s;
+  }
+  .relay-state-badge.off {
+    color: var(--muted);
+    border-color: var(--border);
+    background: transparent;
+  }
+  .relay-state-badge.on {
+    color: var(--relay-on);
+    border-color: rgba(245,158,11,0.4);
+    background: rgba(245,158,11,0.08);
+  }
+  .relay-mode-badge {
+    font-size: 0.52rem;
+    color: var(--muted);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  .relay-mode-badge.manual { color: var(--b1); }
+
+  /* ON/OFF toggle buttons */
+  .relay-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    margin-bottom: 10px;
+  }
+  .relay-btn {
+    padding: 10px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.18s;
+    background: transparent;
+    color: var(--muted);
+  }
+  .relay-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+  .relay-btn.btn-on  { border-color: rgba(245,158,11,0.4); color: var(--relay-on); background: rgba(245,158,11,0.07); }
+  .relay-btn.btn-on:hover  { background: rgba(245,158,11,0.15); }
+  .relay-btn.btn-off { border-color: rgba(71,85,105,0.6);  color: #64748b; }
+  .relay-btn.btn-off:hover { background: rgba(100,116,139,0.1); color: var(--text); }
+  .relay-btn.active-on  { background: var(--relay-on) !important; color: #000 !important; border-color: var(--relay-on) !important; }
+  .relay-btn.active-off { background: #1e293b !important; color: var(--text) !important; border-color: #334155 !important; }
+
+  .relay-gpio-warn {
+    font-size: 0.55rem;
+    color: var(--err);
+    display: flex; align-items: center; gap: 5px;
+    padding: 6px 8px;
+    background: rgba(255,77,109,0.07);
+    border: 1px solid rgba(255,77,109,0.2);
+    border-radius: 5px;
+    margin-top: 4px;
+  }
+  .relay-note {
+    font-size: 0.53rem;
+    color: var(--muted);
+    margin-top: 8px;
+    line-height: 1.7;
+    letter-spacing: 0.03em;
+  }
+
+  /* ── UNITS TOGGLE ── */
+  .units-row {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .field-label {
+    font-size: 0.57rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+  .units-toggle {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .units-btn {
+    padding: 5px 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.18s;
+  }
+  .units-btn.active { background: var(--agri); color: #000; font-weight: 700; }
+
+  /* ── LOCATION ── */
+  .location-row {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .location-wrap { display: flex; gap: 6px; margin-top: 6px; }
+  .location-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 9px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+    min-width: 0;
+  }
+  .location-input::placeholder { color: var(--muted); }
+  .location-input:focus { border-color: rgba(134,239,172,0.4); }
+  .location-btn {
+    background: rgba(134,239,172,0.1);
+    border: 1px solid rgba(134,239,172,0.25);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--agri);
+    font-size: 0.62rem;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    transition: background 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .location-btn:hover { background: rgba(134,239,172,0.2); }
+  .place-resolved {
+    margin-top: 7px;
+    background: rgba(134,239,172,0.07);
+    border: 1px solid rgba(134,239,172,0.2);
+    border-radius: 5px;
+    padding: 6px 9px;
+    font-size: 0.58rem;
+    color: var(--agri);
+    display: flex; align-items: flex-start; gap: 6px;
+    line-height: 1.5;
+  }
+  .place-resolved .coords {
+    display: block;
+    font-size: 0.5rem;
+    color: rgba(134,239,172,0.5);
+    margin-top: 1px;
+  }
+  .place-error {
+    margin-top: 7px;
+    font-size: 0.58rem;
+    color: var(--err);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .place-resolving {
+    margin-top: 7px;
+    font-size: 0.58rem;
+    color: var(--muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .spinner {
+    width: 9px; height: 9px;
+    border: 1.5px solid var(--border);
+    border-top-color: var(--agri);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── DROPDOWN ── */
+  .dropdown-section {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .dropdown-trigger {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    cursor: pointer;
+    text-align: left;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 6px;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .dropdown-trigger:hover,
+  .dropdown-trigger.open { border-color: rgba(134,239,172,0.35); color: var(--text); }
+  .dropdown-menu {
+    position: absolute;
+    top: 100%; left: 18px; right: 18px;
+    background: #0c0f14;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow-y: auto;
+    max-height: 340px;
+    z-index: 50;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.65);
+  }
+  .dd-group-lbl {
+    font-size: 0.52rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    padding: 9px 12px 4px;
+    border-top: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+  .dd-group-lbl:first-child { border-top: none; }
+  .dd-item {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 12px;
+    font-size: 0.6rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.12s;
+    user-select: none;
+  }
+  .dd-item:hover { background: rgba(134,239,172,0.06); }
+  .dd-item.checked { color: var(--agri); }
+  .chk {
+    width: 13px; height: 13px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.46rem;
+    transition: all 0.15s;
+  }
+  .dd-item.checked .chk { background: var(--agri); border-color: var(--agri); color: #000; }
+  .dd-item-label { flex: 1; }
+  .dd-item-source { font-size: 0.5rem; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+  .dd-item.checked .dd-item-source { color: rgba(134,239,172,0.4); }
+
+  /* ── ACTIVE PARAMS ── */
+  .active-params {
+    flex: 1;
+    padding: 12px 18px 20px;
+    overflow-y: auto;
+  }
+  .active-label {
+    font-size: 0.57rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 9px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .active-count {
+    background: rgba(134,239,172,0.12);
+    color: var(--agri);
+    border-radius: 100px;
+    padding: 1px 7px;
+    font-size: 0.52rem;
+  }
+  .param-chip {
+    display: flex; align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--agri);
+    border-radius: 6px;
+    padding: 8px 9px;
+    margin-bottom: 6px;
+    gap: 7px;
+    transition: border-color 0.2s;
+  }
+  .param-chip:hover { border-color: rgba(134,239,172,0.35); }
+  .chip-info { flex: 1; min-width: 0; }
+  .chip-name { font-size: 0.6rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+  .chip-source { font-size: 0.5rem; color: var(--muted); margin-top: 1px; }
+  .chip-right { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+  .chip-value { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--agri); white-space: nowrap; text-align: right; line-height: 1; }
+  .chip-unit { font-size: 0.55em; color: var(--muted); font-family: 'Space Mono', monospace; font-weight: 400; }
+  .chip-loading { font-size: 0.55rem; color: var(--muted); }
+  .chip-remove {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.44rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    padding: 0; line-height: 1;
+  }
+  .chip-remove:hover { border-color: var(--err); color: var(--err); }
+  .empty-hint {
+    font-size: 0.6rem;
+    color: var(--muted);
+    text-align: center;
+    padding: 18px 0;
+    line-height: 2;
+  }
+
+  /* ── MAIN ── */
+  .main {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+    padding: 32px 22px 48px;
+    overflow-x: hidden;
+    min-width: 0;
+  }
+  header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 26px;
+  }
+  h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(1.4rem,3vw,1.9rem); letter-spacing: -0.02em; line-height: 1; }
+  h1 .b1c { color: var(--b1); }
+  h1 .b2c { color: var(--b2); }
+  .subtitle { font-size: 0.6rem; color: var(--muted); margin-top: 5px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .status-pill {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 100px; padding: 5px 12px;
+    font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  }
+  .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); transition: all 0.3s; }
+  .status-pill.live { color: var(--ok); border-color: rgba(45,223,130,0.25); }
+  .status-pill.live .dot { background: var(--ok); box-shadow: 0 0 7px var(--ok); animation: pulse 2s infinite; }
+  .status-pill.err  { color: var(--err); border-color: rgba(255,77,109,0.25); }
+  .status-pill.err  .dot { background: var(--err); }
+  .status-pill.setup { color: var(--b2); border-color: rgba(255,159,67,0.25); }
+  .status-pill.setup .dot { background: var(--b2); animation: pulse 2s infinite; }
+  .setup-banner {
+    display: none;
+    background: rgba(255,159,67,0.08); border: 1px solid rgba(255,159,67,0.25);
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 18px;
+    font-size: 0.7rem; color: var(--b2); line-height: 1.7;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .setup-banner a {
+    background: var(--b2); color: #000; border-radius: 6px;
+    padding: 6px 12px; font-size: 0.65rem; font-weight: 700;
+    text-decoration: none; white-space: nowrap; flex-shrink: 0;
+  }
+  .setup-banner a:hover { background: #ffb86c; }
+  #error-msg {
+    display: none;
+    background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.3);
+    color: var(--err); border-radius: 8px; padding: 9px 13px;
+    font-size: 0.68rem; margin-bottom: 18px;
+  }
+
+  /* ── BOARDS ── */
+  .boards { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+  @media (max-width: 560px) { .boards { grid-template-columns: 1fr; } }
+  .board-col { display: flex; flex-direction: column; gap: 9px; }
+  .board-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 13px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; border-left: 3px solid var(--board-clr);
+  }
+  .board-header h2 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.8rem; color: var(--board-clr); }
+  .board-header .meta { font-size: 0.55rem; color: var(--muted); text-align: right; line-height: 1.6; }
+  .board-b1 { --board-clr: var(--b1); }
+  .board-b2 { --board-clr: var(--b2); }
+  .board-b2.stale .card-value { color: #555 !important; }
+  .board-b2.stale .card { border-color: #1a1a1a; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 13px;
+    position: relative; overflow: hidden;
+    transition: border-color 0.2s, transform 0.18s, box-shadow 0.2s;
+  }
+  .card:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--clr) 35%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--clr) 8%, transparent); }
+  .card::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background: var(--clr); }
+  .card::after  { content:''; position:absolute; bottom:-20px; right:-20px; width:70px; height:70px; border-radius:50%; background: color-mix(in srgb, var(--clr) 7%, transparent); pointer-events:none; }
+  .card.c-temp { --clr: var(--temp); }
+  .card.c-hum  { --clr: var(--hum);  }
+  .card.c-lux  { --clr: var(--lux);  }
+  .card-label { font-size: 0.55rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .card-label::before { content:''; width:5px; height:5px; border-radius:50%; background: var(--clr); box-shadow: 0 0 5px var(--clr); flex-shrink:0; }
+  .card-value { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(1.6rem,3vw,2rem); line-height: 1; color: var(--clr); transition: color 0.3s; }
+  .card-value .unit { font-size: 0.4em; font-weight: 400; color: var(--muted); margin-left: 1px; }
+  .card-sub { font-size: 0.6rem; color: var(--muted); margin-top: 4px; }
+  .card-sub strong { color: color-mix(in srgb, var(--clr) 75%, var(--text)); }
+  .lux-bar-track { height: 4px; background: var(--border); border-radius: 100px; overflow: hidden; margin-top: 12px; }
+  .lux-bar-fill { height: 100%; border-radius: 100px; background: linear-gradient(90deg, var(--lux), #fffac0); width: 0%; transition: width 0.8s cubic-bezier(0.23,1,0.32,1); box-shadow: 0 0 8px rgba(200,255,87,0.4); }
+  .lux-labels { display: flex; justify-content: space-between; margin-top: 4px; font-size: 0.5rem; color: var(--muted); }
+  .channels { display: flex; gap: 14px; margin-top: 12px; flex-wrap: wrap; }
+  .channel-label { font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 2px; }
+  .channel-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; color: #9d7fff; }
+  .channel-val.condition { font-size: 0.72rem; color: var(--muted); }
+  .link-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.58rem; letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 8px; border-radius: 100px; border: 1px solid; }
+  .link-badge.linked  { color: var(--ok);  border-color: rgba(45,223,130,0.35); background: rgba(45,223,130,0.07); }
+  .link-badge.waiting { color: var(--b2);  border-color: rgba(255,159,67,0.35); background: rgba(255,159,67,0.07); }
+  .link-badge.stale   { color: #555; border-color: #222; }
+  .link-badge .ldot   { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .link-badge.linked .ldot { animation: pulse 2s infinite; }
+
+  footer {
+    margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    font-size: 0.58rem; color: var(--muted); letter-spacing: 0.07em; text-transform: uppercase;
+  }
+  footer .live { color: var(--text); }
+  .board-col { opacity: 0; transform: translateY(10px); animation: fadeUp 0.45s forwards; }
+  .board-col:nth-child(1) { animation-delay: 0.05s; }
+  .board-col:nth-child(2) { animation-delay: 0.14s; }
+  @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR ══ -->
+<div class="sidebar">
+
+  <div class="sidebar-header">
+    <h2><span>🌱</span> Agri Data</h2>
+    <p>External environmental parameters</p>
+  </div>
+
+  <!-- ── RELAY CONTROL ── -->
+  <div class="relay-section">
+    <div class="relay-toggle-row" onclick="toggleRelayPanel()">
+      <div class="relay-toggle-label">
+        <div class="relay-dot" id="relay-dot"></div>
+        Relay Control
+      </div>
+      <span class="relay-chevron" id="relay-chevron">▼</span>
+    </div>
+    <div class="relay-body" id="relay-body">
+
+      <div class="relay-status-row">
+        <div class="relay-state-badge off" id="relay-badge">● OFF</div>
+        <div class="relay-mode-badge manual" id="relay-mode">Manual</div>
+      </div>
+
+      <div class="relay-btns">
+        <button class="relay-btn btn-on" id="btn-relay-on"  onclick="setRelay(1)">⏻ ON</button>
+        <button class="relay-btn btn-off active-off" id="btn-relay-off" onclick="setRelay(0)">⏻ OFF</button>
+      </div>
+
+      <div class="relay-gpio-warn" id="relay-gpio-warn" style="display:none;">
+        ⚠ GPIO expander not found. Check Qwiic connection.
+      </div>
+
+      <div class="relay-note">
+        Manual control is active. Rules engine coming in a future update.
+        Manual state persists until changed.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── UNITS ── -->
+  <div class="units-row">
+    <span class="field-label">Units</span>
+    <div class="units-toggle">
+      <button class="units-btn active" id="btn-metric"   onclick="setUnits('metric')">Metric</button>
+      <button class="units-btn"        id="btn-imperial" onclick="setUnits('imperial')">Imperial</button>
+    </div>
+  </div>
+
+  <!-- ── LOCATION ── -->
+  <div class="location-row">
+    <div class="field-label">Location</div>
+    <div class="location-wrap">
+      <input class="location-input" id="loc-input" type="text"
+             placeholder="City, zip code, or lat,lon"
+             autocomplete="off">
+      <button class="location-btn" onclick="resolveLocation()">Go</button>
+    </div>
+    <div id="loc-status"></div>
+  </div>
+
+  <!-- ── DROPDOWN ── -->
+  <div class="dropdown-section" id="dd-section">
+    <div class="field-label">Add parameter</div>
+    <button class="dropdown-trigger" id="dd-trigger" onclick="toggleDropdown()">
+      <span>Select a parameter…</span>
+      <span id="dd-arrow">▼</span>
+    </button>
+    <div class="dropdown-menu" id="dd-menu" style="display:none;">
+      <div class="dd-group-lbl">Weather &amp; Forecast</div>
+      <div class="dd-item" data-id="w-temp"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Outdoor Temperature</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="w-precip"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Precipitation</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="w-wind"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Wind Speed</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="w-winddir" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Wind Direction</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="w-cloud"   onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Cloud Cover</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="w-humid"   onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Outdoor Humidity</span><span class="dd-item-source">(Open-Meteo)</span></div>
+
+      <div class="dd-group-lbl">Solar &amp; Light</div>
+      <div class="dd-item" data-id="s-firstlight" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">First Light / Civil Dawn</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
+      <div class="dd-item" data-id="s-sunrise"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Sunrise</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
+      <div class="dd-item" data-id="s-solarnoon"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Solar Noon</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
+      <div class="dd-item" data-id="s-sunset"     onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Sunset</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
+      <div class="dd-item" data-id="s-lastlight"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Last Light / Civil Dusk</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
+      <div class="dd-item" data-id="s-daylen"     onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Day Length</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
+      <div class="dd-item" data-id="s-uv"         onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">UV Index</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="s-rad"        onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Shortwave Radiation</span><span class="dd-item-source">(Open-Meteo)</span></div>
+
+      <div class="dd-group-lbl">Soil &amp; Agriculture</div>
+      <div class="dd-item" data-id="a-soil0"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Soil Temp (0–7cm)</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="a-soil1"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Soil Temp (7–28cm)</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="a-soilm"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Soil Moisture</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="a-et"     onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Evapotranspiration (ET₀)</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="a-vpd"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Vapor Pressure Deficit</span><span class="dd-item-source">(Open-Meteo)</span></div>
+
+      <div class="dd-group-lbl">Moon</div>
+      <div class="dd-item" data-id="m-phase"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Moon Phase</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
+      <div class="dd-item" data-id="m-moonrise" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Moonrise</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
+      <div class="dd-item" data-id="m-moonset"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Moonset</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
+
+      <div class="dd-group-lbl">Air Quality</div>
+      <div class="dd-item" data-id="q-pm25"   onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">PM2.5 Particulates</span><span class="dd-item-source">(Open-Meteo AQI)</span></div>
+      <div class="dd-item" data-id="q-pollen" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Pollen Count</span><span class="dd-item-source">(Open-Meteo AQI)</span></div>
+    </div>
+  </div>
+
+  <!-- ── ACTIVE PARAMS ── -->
+  <div class="active-params">
+    <div class="active-label">
+      <span>Active parameters</span>
+      <span class="active-count" id="active-count">0</span>
+    </div>
+    <div id="param-list">
+      <div class="empty-hint">No parameters selected.<br>Enter a location and use<br>the dropdown to add data.</div>
+    </div>
+  </div>
+
+  <!-- ── WIFI SETTINGS ── -->
+  <div style="padding:12px 18px 16px;border-top:1px solid var(--border);flex-shrink:0;">
+    <div class="field-label" style="margin-bottom:8px;">Network</div>
+    <div id="wifi-status-label" style="font-size:0.58rem;color:var(--muted);margin-bottom:10px;line-height:1.6;"></div>
+    <button onclick="resetWifi()" style="width:100%;padding:8px;background:transparent;border:1px solid rgba(255,77,109,0.3);border-radius:6px;color:#ff4d6d;font-family:'Space Mono',monospace;font-size:0.6rem;cursor:pointer;letter-spacing:0.05em;">
+      Reset WiFi credentials
+    </button>
+  </div>
+
+</div><!-- /sidebar -->
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+  <header>
+    <div>
+      <h1>Brain<span class="b1c">Board</span> <span class="b2c">Network</span></h1>
+      <p class="subtitle">ESP32-C6 &nbsp;·&nbsp; ESP-NOW LR &nbsp;·&nbsp; Live Sensor Dashboard</p>
+    </div>
+    <div id="conn-status" class="status-pill"><span class="dot"></span><span id="status-text">Connecting…</span></div>
+  </header>
+
+  <div id="error-msg"></div>
+
+  <!-- Setup mode banner — shown when not connected to a network -->
+  <div class="setup-banner" id="setup-banner" style="display:none;">
+    <span>📡 Your board is in setup mode — not connected to a network yet.</span>
+    <a href="/setup">Connect to WiFi →</a>
+  </div>
+
+  <div class="boards">
+    <!-- Board 1 -->
+    <div class="board-col board-b1" id="col-b1">
+      <div class="board-header">
+        <h2>Board 1 — Host</h2>
+        <div class="meta">
+          <span id="b1-sensors">SHTC3 · TSL2591</span><br>
+          <span id="b1-uptime">up: —</span>
+        </div>
+      </div>
+      <div class="card c-temp">
+        <div class="card-label">Temperature</div>
+        <div class="card-value" id="b1-tempc">—<span class="unit">°C</span></div>
+        <div class="card-sub" id="b1-tempf">—</div>
+      </div>
+      <div class="card c-hum">
+        <div class="card-label">Relative Humidity</div>
+        <div class="card-value" id="b1-hum">—<span class="unit">%</span></div>
+        <div class="card-sub" id="b1-hum-feel">—</div>
+      </div>
+      <div class="card c-lux">
+        <div class="card-label">Ambient Light</div>
+        <div class="card-value" id="b1-lux">—<span class="unit">lux</span></div>
+        <div class="lux-bar-track"><div class="lux-bar-fill" id="b1-bar"></div></div>
+        <div class="lux-labels"><span>Dark</span><span>Dim</span><span>Room</span><span>Bright</span><span>Sun</span></div>
+        <div class="channels">
+          <div><div class="channel-label">Visible</div><div class="channel-val" id="b1-vis">—</div></div>
+          <div><div class="channel-label">Infrared</div><div class="channel-val" id="b1-ir">—</div></div>
+          <div><div class="channel-label">Condition</div><div class="channel-val condition" id="b1-cond">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Board 2 -->
+    <div class="board-col board-b2" id="col-b2">
+      <div class="board-header">
+        <h2>Board 2 — Remote</h2>
+        <div class="meta">
+          <span id="b2-badge"><span class="link-badge waiting"><span class="ldot"></span>Waiting…</span></span><br>
+          <span id="b2-uptime">up: —</span>
+        </div>
+      </div>
+      <div class="card c-temp">
+        <div class="card-label">Temperature</div>
+        <div class="card-value" id="b2-tempc">—<span class="unit">°C</span></div>
+        <div class="card-sub" id="b2-tempf">—</div>
+      </div>
+      <div class="card c-hum">
+        <div class="card-label">Relative Humidity</div>
+        <div class="card-value" id="b2-hum">—<span class="unit">%</span></div>
+        <div class="card-sub" id="b2-hum-feel">—</div>
+      </div>
+      <div class="card c-lux">
+        <div class="card-label">Ambient Light</div>
+        <div class="card-value" id="b2-lux">—<span class="unit">lux</span></div>
+        <div class="lux-bar-track"><div class="lux-bar-fill" id="b2-bar"></div></div>
+        <div class="lux-labels"><span>Dark</span><span>Dim</span><span>Room</span><span>Bright</span><span>Sun</span></div>
+        <div class="channels">
+          <div><div class="channel-label">Visible</div><div class="channel-val" id="b2-vis">—</div></div>
+          <div><div class="channel-label">Infrared</div><div class="channel-val" id="b2-ir">—</div></div>
+          <div><div class="channel-label">Condition</div><div class="channel-val condition" id="b2-cond">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- .boards -->
+
+  <footer>
+    <span>Automato Brain Board V2.0 &nbsp;·&nbsp; ESP-NOW LR Mode</span>
+    <span>Updated: <span class="live" id="val-ts">—</span></span>
+  </footer>
+</div><!-- .main -->
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+const REFRESH_MS  = 2500;
+const AGRI_MS     = 60000;
+
+let units           = 'metric';
+let ddOpen          = false;
+let activeParams    = {};
+let externalData    = {};
+let coords          = null;
+let lastAgriRefresh = 0;
+
+// Relay state (mirrors board state)
+let relayState      = false;
+let relayGpioOk     = true;
+let relayPanelOpen  = false;
+
+// ═══════════════════════════════════════════════
+// RELAY PANEL
+// ═══════════════════════════════════════════════
+function toggleRelayPanel() {
+  relayPanelOpen = !relayPanelOpen;
+  document.getElementById('relay-body').classList.toggle('open', relayPanelOpen);
+  document.getElementById('relay-chevron').classList.toggle('open', relayPanelOpen);
+}
+
+async function setRelay(state) {
+  try {
+    const res  = await fetch(`/relay?state=${state}`);
+    const data = await res.json();
+    if (data.ok) updateRelayUI(data.state, data.manualOverride, relayGpioOk);
+  } catch (e) {
+    console.warn('Relay command failed:', e);
+  }
+}
+
+function updateRelayUI(state, manual, gpioOk) {
+  relayState  = state;
+  relayGpioOk = gpioOk;
+
+  // Dot in header
+  const dot = document.getElementById('relay-dot');
+  dot.classList.toggle('on', state);
+
+  // Badge
+  const badge = document.getElementById('relay-badge');
+  badge.className = 'relay-state-badge ' + (state ? 'on' : 'off');
+  badge.textContent = state ? '● ON' : '● OFF';
+
+  // Mode label
+  const mode = document.getElementById('relay-mode');
+  mode.textContent = manual ? 'Manual' : 'Auto';
+  mode.className   = 'relay-mode-badge ' + (manual ? 'manual' : '');
+
+  // Button highlight
+  document.getElementById('btn-relay-on').className  = 'relay-btn btn-on'  + (state  ? ' active-on'  : '');
+  document.getElementById('btn-relay-off').className = 'relay-btn btn-off' + (!state ? ' active-off' : '');
+
+  // GPIO warning
+  document.getElementById('relay-gpio-warn').style.display = gpioOk ? 'none' : 'flex';
+}
+
+// ═══════════════════════════════════════════════
+// UNITS
+// ═══════════════════════════════════════════════
+function setUnits(u) {
+  units = u;
+  document.getElementById('btn-metric').classList.toggle('active', u === 'metric');
+  document.getElementById('btn-imperial').classList.toggle('active', u === 'imperial');
+  renderChips();
+}
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+function fmt1(n)   { return isFinite(n) ? n.toFixed(1) : '—'; }
+function fmtInt(n) { return isFinite(n) ? Math.round(n).toString() : '—'; }
+function humidFeel(h) {
+  if (h < 25) return 'Very dry'; if (h < 40) return 'Dry';
+  if (h < 60) return 'Comfortable'; if (h < 75) return 'Humid';
+  return 'Very humid';
+}
+function luxCondition(l) {
+  if (l < 1) return 'Pitch dark'; if (l < 10) return 'Very dark';
+  if (l < 50) return 'Dim'; if (l < 200) return 'Indoor';
+  if (l < 500) return 'Well-lit'; if (l < 2000) return 'Bright';
+  if (l < 10000) return 'Very bright'; return 'Direct sun';
+}
+function luxBarPct(l) {
+  if (l <= 0) return 0;
+  return Math.min(Math.max((Math.log10(l + 0.1) / Math.log10(100000)) * 100, 0), 100);
+}
+function formatUptime(s) {
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  if (h > 0) return `${h}h ${m}m ${sec}s`; if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+function formatTime(isoStr) {
+  if (!isoStr) return '—';
+  try { return new Date(isoStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+  catch { return '—'; }
+}
+function windDirLabel(deg) {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(deg / 22.5) % 16];
+}
+function moonPhaseLabel(illum) {
+  if (illum === undefined) return '—';
+  const p = parseFloat(illum);
+  if (p < 2) return '🌑 New Moon'; if (p < 35) return '🌒 Waxing Crescent';
+  if (p < 65) return '🌓 First Quarter'; if (p < 98) return '🌔 Waxing Gibbous';
+  return '🌕 Full Moon';
+}
+
+// ═══════════════════════════════════════════════
+// LOCATION
+// ═══════════════════════════════════════════════
+document.getElementById('loc-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') resolveLocation();
+});
+
+async function resolveLocation() {
+  const raw = document.getElementById('loc-input').value.trim();
+  if (!raw) return;
+  const status = document.getElementById('loc-status');
+  status.innerHTML = '<div class="place-resolving"><div class="spinner"></div>Resolving…</div>';
+
+  const latLonMatch = raw.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+  if (latLonMatch) {
+    const lat = parseFloat(latLonMatch[1]), lon = parseFloat(latLonMatch[2]);
+    coords = { lat, lon, name: `${lat.toFixed(4)}, ${lon.toFixed(4)}` };
+    status.innerHTML = `<div class="place-resolved">📍 <div><span>Coordinates set</span><span class="coords">${lat.toFixed(4)}° N, ${Math.abs(lon).toFixed(4)}° W</span></div></div>`;
+    await refreshExternalData(); return;
+  }
+  try {
+    const url  = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(raw)}&count=1&language=en&format=json`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (!data.results || data.results.length === 0) {
+      status.innerHTML = `<div class="place-error">⚠ Location not found.</div>`;
+      coords = null; return;
+    }
+    const r = data.results[0];
+    coords = { lat: r.latitude, lon: r.longitude, name: [r.name, r.admin1, r.country_code].filter(Boolean).join(', ') };
+    status.innerHTML = `<div class="place-resolved">📍 <div><span>${coords.name}</span><span class="coords">${coords.lat.toFixed(4)}° N, ${Math.abs(coords.lon).toFixed(4)}° W</span></div></div>`;
+    await refreshExternalData();
+  } catch (e) {
+    status.innerHTML = `<div class="place-error">⚠ Geocoding failed: ${e.message}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════
+// EXTERNAL DATA
+// ═══════════════════════════════════════════════
+async function refreshExternalData() {
+  if (!coords) return;
+  lastAgriRefresh = Date.now();
+  const ids = Object.keys(activeParams);
+  const needsWeather = ids.some(id => id.startsWith('w-') || id.startsWith('a-') || id === 's-uv' || id === 's-rad');
+  const needsSolar   = ids.some(id => id.startsWith('s-') || id.startsWith('m-'));
+  const needsAQI     = ids.some(id => id.startsWith('q-'));
+  if (needsWeather) await fetchWeather();
+  if (needsSolar)   await fetchSolar();
+  if (needsAQI)     await fetchAQI();
+  renderChips();
+}
+
+async function fetchWeather() {
+  try {
+    const params = ['temperature_2m','precipitation','wind_speed_10m','wind_direction_10m','cloud_cover','relative_humidity_2m','uv_index','shortwave_radiation','soil_temperature_0_to_7cm','soil_temperature_7_to_28cm','soil_moisture_0_to_7cm','et0_fao_evapotranspiration','vapour_pressure_deficit'].join(',');
+    const res  = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=${params}&timezone=auto`);
+    const data = await res.json();
+    const c    = data.current;
+    externalData['w-temp']    = { val_m: fmt1(c.temperature_2m), val_i: fmt1(c.temperature_2m*9/5+32), unit_m:'°C', unit_i:'°F' };
+    externalData['w-precip']  = { val_m: fmt1(c.precipitation),  val_i: fmt1(c.precipitation/25.4),   unit_m:'mm', unit_i:'in' };
+    externalData['w-wind']    = { val_m: fmt1(c.wind_speed_10m), val_i: fmt1(c.wind_speed_10m*0.621), unit_m:'km/h', unit_i:'mph' };
+    externalData['w-winddir'] = { val_m: windDirLabel(c.wind_direction_10m)+' '+Math.round(c.wind_direction_10m)+'°', val_i: windDirLabel(c.wind_direction_10m)+' '+Math.round(c.wind_direction_10m)+'°', unit_m:'', unit_i:'' };
+    externalData['w-cloud']   = { val_m: fmtInt(c.cloud_cover),           val_i: fmtInt(c.cloud_cover),            unit_m:'%', unit_i:'%' };
+    externalData['w-humid']   = { val_m: fmtInt(c.relative_humidity_2m),  val_i: fmtInt(c.relative_humidity_2m),   unit_m:'%', unit_i:'%' };
+    externalData['s-uv']      = { val_m: fmt1(c.uv_index),                val_i: fmt1(c.uv_index),                 unit_m:'', unit_i:'' };
+    externalData['s-rad']     = { val_m: fmtInt(c.shortwave_radiation),   val_i: fmtInt(c.shortwave_radiation),    unit_m:'W/m²', unit_i:'W/m²' };
+    externalData['a-soil0']   = { val_m: fmt1(c.soil_temperature_0_to_7cm),  val_i: fmt1(c.soil_temperature_0_to_7cm*9/5+32),  unit_m:'°C', unit_i:'°F' };
+    externalData['a-soil1']   = { val_m: fmt1(c.soil_temperature_7_to_28cm), val_i: fmt1(c.soil_temperature_7_to_28cm*9/5+32), unit_m:'°C', unit_i:'°F' };
+    externalData['a-soilm']   = { val_m: c.soil_moisture_0_to_7cm!=null?c.soil_moisture_0_to_7cm.toFixed(3):'—', val_i: c.soil_moisture_0_to_7cm!=null?c.soil_moisture_0_to_7cm.toFixed(3):'—', unit_m:'m³/m³', unit_i:'m³/m³' };
+    externalData['a-et']      = { val_m: fmt1(c.et0_fao_evapotranspiration), val_i: fmt1(c.et0_fao_evapotranspiration/25.4), unit_m:'mm', unit_i:'in' };
+    externalData['a-vpd']     = { val_m: fmt1(c.vapour_pressure_deficit),    val_i: fmt1(c.vapour_pressure_deficit),          unit_m:'kPa', unit_i:'kPa' };
+  } catch(e) { console.warn('Weather fetch failed:', e); }
+}
+
+async function fetchSolar() {
+  try {
+    const res  = await fetch(`https://api.sunrise-sunset.org/json?lat=${coords.lat}&lng=${coords.lon}&formatted=0`);
+    const data = await res.json();
+    const r    = data.results;
+    const dlH  = Math.floor(r.day_length/3600), dlM = Math.floor((r.day_length%3600)/60);
+    const dlStr = `${dlH}h ${dlM}m`;
+    externalData['s-firstlight'] = { val_m: formatTime(r.civil_twilight_begin), val_i: formatTime(r.civil_twilight_begin), unit_m:'', unit_i:'' };
+    externalData['s-sunrise']    = { val_m: formatTime(r.sunrise),              val_i: formatTime(r.sunrise),              unit_m:'', unit_i:'' };
+    externalData['s-solarnoon']  = { val_m: formatTime(r.solar_noon),           val_i: formatTime(r.solar_noon),           unit_m:'', unit_i:'' };
+    externalData['s-sunset']     = { val_m: formatTime(r.sunset),               val_i: formatTime(r.sunset),               unit_m:'', unit_i:'' };
+    externalData['s-lastlight']  = { val_m: formatTime(r.civil_twilight_end),   val_i: formatTime(r.civil_twilight_end),   unit_m:'', unit_i:'' };
+    externalData['s-daylen']     = { val_m: dlStr, val_i: dlStr, unit_m:'', unit_i:'' };
+    externalData['m-moonrise']   = { val_m: formatTime(r.moonrise), val_i: formatTime(r.moonrise), unit_m:'', unit_i:'' };
+    externalData['m-moonset']    = { val_m: formatTime(r.moonset),  val_i: formatTime(r.moonset),  unit_m:'', unit_i:'' };
+    externalData['m-phase']      = { val_m: moonPhaseLabel(r.moon_illumination_percent), val_i: moonPhaseLabel(r.moon_illumination_percent), unit_m:'', unit_i:'' };
+  } catch(e) { console.warn('Solar fetch failed:', e); }
+}
+
+async function fetchAQI() {
+  try {
+    const res  = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${coords.lat}&longitude=${coords.lon}&current=pm2_5,pollen_unified&timezone=auto`);
+    const data = await res.json();
+    const c    = data.current;
+    const pollenLabels = ['Low','Moderate','High','Very High'];
+    const pollenLabel  = c.pollen_unified!=null ? (pollenLabels[Math.min(Math.round(c.pollen_unified),3)]||'—') : '—';
+    externalData['q-pm25']   = { val_m: fmt1(c.pm2_5), val_i: fmt1(c.pm2_5), unit_m:'μg/m³', unit_i:'μg/m³' };
+    externalData['q-pollen'] = { val_m: pollenLabel,   val_i: pollenLabel,   unit_m:'', unit_i:'' };
+  } catch(e) { console.warn('AQI fetch failed:', e); }
+}
+
+// ═══════════════════════════════════════════════
+// DROPDOWN
+// ═══════════════════════════════════════════════
+function toggleDropdown() {
+  ddOpen = !ddOpen;
+  document.getElementById('dd-menu').style.display = ddOpen ? 'block' : 'none';
+  document.getElementById('dd-trigger').classList.toggle('open', ddOpen);
+  document.getElementById('dd-arrow').textContent  = ddOpen ? '▲' : '▼';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#dd-section')) {
+    ddOpen = false;
+    document.getElementById('dd-menu').style.display = 'none';
+    document.getElementById('dd-trigger').classList.remove('open');
+    document.getElementById('dd-arrow').textContent  = '▼';
+  }
+});
+function toggleParam(el) {
+  const id = el.dataset.id;
+  const label  = el.querySelector('.dd-item-label').textContent;
+  const source = el.querySelector('.dd-item-source').textContent.replace(/[()]/g,'');
+  el.classList.toggle('checked');
+  el.querySelector('.chk').textContent = el.classList.contains('checked') ? '✓' : '';
+  if (el.classList.contains('checked')) {
+    activeParams[id] = { label, source };
+    if (coords) refreshExternalData();
+  } else { delete activeParams[id]; }
+  renderChips();
+}
+function removeParam(id) {
+  delete activeParams[id];
+  const el = document.querySelector(`[data-id="${id}"]`);
+  if (el) { el.classList.remove('checked'); el.querySelector('.chk').textContent = ''; }
+  renderChips();
+}
+
+// ═══════════════════════════════════════════════
+// RENDER CHIPS
+// ═══════════════════════════════════════════════
+function renderChips() {
+  const keys = Object.keys(activeParams);
+  document.getElementById('active-count').textContent = keys.length;
+  const list = document.getElementById('param-list');
+  if (keys.length === 0) {
+    list.innerHTML = '<div class="empty-hint">No parameters selected.<br>Enter a location and use<br>the dropdown to add data.</div>';
+    return;
+  }
+  list.innerHTML = keys.map(id => {
+    const p = activeParams[id], ext = externalData[id];
+    let valHtml;
+    if (!coords)     valHtml = `<span class="chip-loading">Set location</span>`;
+    else if (!ext)   valHtml = `<span class="chip-loading">Loading…</span>`;
+    else {
+      const val  = units === 'metric' ? ext.val_m  : ext.val_i;
+      const unit = units === 'metric' ? ext.unit_m : ext.unit_i;
+      valHtml = `<span class="chip-value">${val}<span class="chip-unit">${unit}</span></span>`;
+    }
+    return `<div class="param-chip">
+      <div class="chip-info">
+        <div class="chip-name">${p.label}</div>
+        <div class="chip-source">(${p.source})</div>
+      </div>
+      <div class="chip-right">
+        ${valHtml}
+        <button class="chip-remove" onclick="removeParam('${id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// BOARD SENSORS
+// ═══════════════════════════════════════════════
+function setStatus(state, label) {
+  const el = document.getElementById('conn-status');
+  el.className = 'status-pill ' + state;
+  const labels = {
+    live:  '✓ Connected',
+    setup: '⚙ Setup mode',
+    err:   '✗ Offline',
+    '':    'Connecting…'
+  };
+  document.getElementById('status-text').textContent = label || labels[state] || 'Connecting…';
+  // Show/hide setup banner
+  const banner = document.getElementById('setup-banner');
+  if (banner) banner.style.display = (state === 'setup') ? 'flex' : 'none';
+}
+
+function fillBoard(prefix, d, stale) {
+  const col = document.getElementById('col-' + prefix);
+  stale ? col.classList.add('stale') : col.classList.remove('stale');
+  const showC = units === 'metric';
+  const temp  = showC ? d.tempC : d.tempF;
+  const tunit = showC ? '°C' : '°F';
+  const tsub  = showC ? `${fmt1(d.tempF)} °F` : `${fmt1(d.tempC)} °C`;
+  document.getElementById(prefix+'-tempc').innerHTML = fmt1(temp)+`<span class="unit">${tunit}</span>`;
+  document.getElementById(prefix+'-tempf').innerHTML = `<strong>${tsub}</strong>`;
+  document.getElementById(prefix+'-hum').innerHTML   = fmt1(d.humidity)+'<span class="unit">%</span>';
+  document.getElementById(prefix+'-hum-feel').innerHTML = `<strong>${humidFeel(d.humidity)}</strong>`;
+  const lux = d.lux;
+  document.getElementById(prefix+'-lux').innerHTML = lux>=1000
+    ? (lux/1000).toFixed(1)+'k<span class="unit">lux</span>'
+    : fmtInt(lux)+'<span class="unit">lux</span>';
+  document.getElementById(prefix+'-bar').style.width  = luxBarPct(lux)+'%';
+  document.getElementById(prefix+'-vis').textContent  = fmtInt(d.visible);
+  document.getElementById(prefix+'-ir').textContent   = fmtInt(d.infrared);
+  document.getElementById(prefix+'-cond').textContent = stale ? '—' : luxCondition(lux);
+}
+
+async function fetchData() {
+  try {
+    const res  = await fetch('/data');
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+
+    document.getElementById('error-msg').style.display = 'none';
+    setStatus('live');
+
+    fillBoard('b1', data.b1, false);
+    document.getElementById('b1-uptime').textContent = 'up: '+formatUptime(data.b1.uptime);
+
+    const stale = data.b2.stale;
+    fillBoard('b2', data.b2, stale);
+    document.getElementById('b2-uptime').textContent = data.b2.uptime>0 ? 'up: '+formatUptime(data.b2.uptime) : 'up: —';
+
+    const badge = document.getElementById('b2-badge');
+    if (!stale) {
+      const s = Math.round(data.b2.lastSeenMs/1000);
+      badge.innerHTML = `<span class="link-badge linked"><span class="ldot"></span>Linked · ${s}s ago</span>`;
+    } else if (data.b2.mac !== '—') {
+      badge.innerHTML = `<span class="link-badge stale"><span class="ldot"></span>Signal lost</span>`;
+    } else {
+      badge.innerHTML = `<span class="link-badge waiting"><span class="ldot"></span>Waiting…</span>`;
+    }
+
+    // Update relay UI from /data response
+    if (data.relay) {
+      updateRelayUI(data.relay.state, data.relay.manualOverride, data.relay.gpioOk);
+    }
+
+    document.getElementById('val-ts').textContent = new Date().toLocaleTimeString();
+
+    if (coords && Object.keys(activeParams).length>0 && Date.now()-lastAgriRefresh>AGRI_MS) {
+      refreshExternalData();
+    }
+
+  } catch(e) {
+    setStatus('err');
+    const errEl = document.getElementById('error-msg');
+    errEl.style.display = 'block';
+    errEl.textContent   = 'Cannot reach Board 1: '+e.message;
+  }
+}
+
+async function resetWifi() {
+  if (!confirm('This will clear your WiFi credentials and reboot the board into setup mode. Continue?')) return;
+  try {
+    await fetch('/wifi/reset', { method: 'POST' });
+  } catch(e) {}
+  setStatus('setup');
+  document.getElementById('wifi-status-label').textContent = 'Credentials cleared. Board is rebooting…';
+}
+
+async function fetchVersion() {
+  try {
+    const res  = await fetch('/version');
+    const data = await res.json();
+    const lbl  = document.getElementById('wifi-status-label');
+    if (data.wifiConnected) {
+      lbl.textContent = '📶 Connected · ' + data.mdns;
+    } else if (data.hasCredentials) {
+      lbl.textContent = '⚠ Could not reach stored network.';
+    } else {
+      lbl.textContent = '📡 No network configured.';
+      setStatus('setup');
+    }
+  } catch(e) {}
+}
+
+fetchData();
+fetchVersion();
+setInterval(fetchData, REFRESH_MS);
+</script>
+</body>
+</html>
+)rawhtml";
+
+// ─────────────────────────────────────────────
+// OTA Update UI — always served from PROGMEM
+// Available even if LittleFS is unavailable.
+// ─────────────────────────────────────────────
+const char UPDATE_HTML[] PROGMEM = R"rawhtml(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Automato OTA Update</title>
+<style>
+  body { font-family: monospace; background: #1a1a1a; color: #e0e0e0; max-width: 600px; margin: 60px auto; padding: 0 20px; }
+  h1 { color: #d84a2a; margin-bottom: 4px; }
+  h2 { color: #aaa; font-size: 1rem; font-weight: normal; margin-top: 0; margin-bottom: 32px; }
+  .card { background: #2a2a2a; border: 1px solid #3a3a3a; padding: 24px; margin-bottom: 20px; }
+  .card h3 { margin: 0 0 8px 0; font-size: 0.85rem; letter-spacing: 0.1em; color: #888; text-transform: uppercase; }
+  .card p { margin: 0 0 16px 0; font-size: 0.85rem; color: #aaa; }
+  input[type=file] { display: block; margin-bottom: 16px; color: #e0e0e0; }
+  button { background: #d84a2a; color: #fff; border: none; padding: 10px 24px; cursor: pointer; font-family: monospace; font-size: 0.9rem; }
+  button:hover { background: #c03820; }
+  #msg { margin-top: 20px; padding: 12px; display: none; }
+  #msg.ok  { background: #1a3a1a; border: 1px solid #2a6a2a; color: #6fca6f; }
+  #msg.err { background: #3a1a1a; border: 1px solid #6a2a2a; color: #ca6f6f; }
+  a { color: #d84a2a; }
+</style>
+</head>
+<body>
+<h1>OTA Update</h1>
+<h2>Automato Brain Board V2.0</h2>
+
+<div class="card">
+  <h3>Firmware</h3>
+  <p>Compiled sketch binary. Does not affect webapp files in LittleFS.</p>
+  <form id="fw-form">
+    <input type="file" id="fw-file" accept=".bin">
+    <button type="submit">Upload Firmware</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Webapp</h3>
+  <p>LittleFS filesystem image. Updates dashboard without touching firmware.</p>
+  <form id="fs-form">
+    <input type="file" id="fs-file" accept=".bin">
+    <button type="submit">Upload Webapp</button>
+  </form>
+</div>
+
+<div id="msg"></div>
+<p><a href="/">← Back to dashboard</a></p>
+
+<script>
+function upload(url, fileInput, msgEl) {
+  const file = fileInput.files[0];
+  if (!file) { showMsg('No file selected.', false); return; }
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', url, true);
+  xhr.onload = () => {
+    if (xhr.status === 200) {
+      let secs = 10;
+      function tick() {
+        showMsg(xhr.responseText + ' Board is rebooting. Returning to dashboard in ' + secs + 's…', true);
+        if (secs-- > 0) setTimeout(tick, 1000);
+        else window.location.href = '/';
+      }
+      tick();
+    } else {
+      showMsg('Error: ' + xhr.responseText, false);
+    }
+  };
+  xhr.onerror = () => showMsg('Upload failed.', false);
+  const fd = new FormData();
+  fd.append('file', file, file.name);
+  showMsg('Uploading…', true);
+  xhr.send(fd);
+}
+function showMsg(text, ok) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = ok ? 'ok' : 'err';
+  el.style.display = 'block';
+}
+document.getElementById('fw-form').onsubmit = e => {
+  e.preventDefault(); upload('/update/firmware', document.getElementById('fw-file'));
+};
+document.getElementById('fs-form').onsubmit = e => {
+  e.preventDefault(); upload('/update/filesystem', document.getElementById('fs-file'));
+};
+</script>
+</body>
+</html>
+)rawhtml";
+
+// ─────────────────────────────────────────────
+// HTTP: /
+// Serve dashboard from LittleFS
+// ─────────────────────────────────────────────
+void handleRoot() {
+  if (!lfsOk) {
+    server.send(503, "text/plain",
+      "LittleFS unavailable. Filesystem may not be initialized.");
+    return;
+  }
+  File f = LittleFS.open("/index.html", "r");
+  if (!f) {
+    server.send(404, "text/plain", "index.html not found in LittleFS.");
+    return;
+  }
+  server.streamFile(f, "text/html");
+  f.close();
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /update
+// OTA update UI — always served from PROGMEM
+// ─────────────────────────────────────────────
+void handleUpdatePage() {
+  server.send_P(200, "text/html", UPDATE_HTML);
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /update/firmware  (POST)
+// Accepts compiled firmware .bin and flashes it
+// ─────────────────────────────────────────────
+void handleUpdateFirmware() {
+  HTTPUpload& upload = server.upload();
+  if (upload.status == UPLOAD_FILE_START) {
+    Serial.printf("OTA firmware update: %s\n", upload.filename.c_str());
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH)) {
+      Update.printError(Serial);
+    }
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+      Update.printError(Serial);
+    }
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (Update.end(true)) {
+      Serial.printf("OTA firmware success: %u bytes. Rebooting.\n", upload.totalSize);
+    } else {
+      Update.printError(Serial);
+    }
+  }
+}
+
+void handleUpdateFirmwareDone() {
+  if (Update.hasError()) {
+    server.send(500, "text/plain", String("Firmware update failed: ") + Update.errorString());
+  } else {
+    server.send(200, "text/plain", "Firmware updated.");
+    delay(500);
+    ESP.restart();
+  }
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /update/filesystem  (POST)
+// Accepts a LittleFS .bin image and flashes it
+// ─────────────────────────────────────────────
+void handleUpdateFilesystem() {
+  HTTPUpload& upload = server.upload();
+  if (upload.status == UPLOAD_FILE_START) {
+    Serial.printf("OTA filesystem update: %s\n", upload.filename.c_str());
+    LittleFS.end();  // unmount before flashing
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_SPIFFS)) {
+      Update.printError(Serial);
+    }
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+      Update.printError(Serial);
+    }
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (Update.end(true)) {
+      Serial.printf("OTA filesystem success: %u bytes. Rebooting.\n", upload.totalSize);
+    } else {
+      Update.printError(Serial);
+    }
+  }
+}
+
+void handleUpdateFilesystemDone() {
+  if (Update.hasError()) {
+    server.send(500, "text/plain", String("Filesystem update failed: ") + Update.errorString());
+    // Remount so the board remains functional
+    lfsOk = LittleFS.begin(false);
+  } else {
+    server.send(200, "text/plain", "Webapp updated.");
+    delay(500);
+    ESP.restart();  // cleanest way to remount new filesystem
+  }
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /version
+// Returns firmware and webapp version as JSON
+// ─────────────────────────────────────────────
+void handleVersion() {
+  char json[256];
+  snprintf(json, sizeof(json),
+    "{\"firmware\":\"%s\",\"webapp\":\"%s\",\"lfs\":%s,"
+    "\"wifiConnected\":%s,\"hasCredentials\":%s,"
+    "\"apSSID\":\"%s\",\"mdns\":\"%s.local\"}",
+    FIRMWARE_VERSION,
+    webappVersion,
+    lfsOk          ? "true" : "false",
+    wifiConnected  ? "true" : "false",
+    hasCredentials ? "true" : "false",
+    apSSID,
+    mdnsName
+  );
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(200, "application/json", json);
+}
+
+
+// ─────────────────────────────────────────────
+// HTTP: /setup  GET — WiFi provisioning form
+// Served from PROGMEM — always available even without LittleFS
+// ─────────────────────────────────────────────
+void handleSetupGet() {
+  String html = F(
+    "<!DOCTYPE html><html><head>"
+    "<meta charset='UTF-8'>"
+    "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+    "<title>Automato Setup</title>"
+    "<style>"
+    "body{font-family:monospace;background:#090b0e;color:#dde3ee;margin:0;padding:24px;}"
+    "h1{color:#00e5ff;font-size:1.4rem;margin-bottom:4px;}"
+    "p{color:#4a5568;font-size:0.8rem;margin-bottom:24px;}"
+    ".card{background:#10141a;border:1px solid #1a2030;border-radius:10px;padding:24px;max-width:400px;}"
+    "label{display:block;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#4a5568;margin-bottom:5px;margin-top:16px;}"
+    "input{width:100%;box-sizing:border-box;background:#090b0e;border:1px solid #1a2030;border-radius:6px;"
+    "padding:10px;color:#dde3ee;font-family:monospace;font-size:0.85rem;outline:none;}"
+    "input:focus{border-color:rgba(0,229,255,0.4);}"
+    "button{margin-top:20px;width:100%;padding:12px;background:#00e5ff;color:#000;border:none;"
+    "border-radius:6px;font-family:monospace;font-size:0.85rem;font-weight:700;cursor:pointer;}"
+    "button:hover{background:#33eeff;}"
+    ".note{font-size:0.6rem;color:#4a5568;margin-top:12px;line-height:1.7;}"
+    "</style></head><body>"
+    "<h1>🌱 Automato Setup</h1>"
+    "<p>Connect your board to your WiFi network.</p>"
+    "<div class='card'>"
+    "<form method='POST' action='/setup'>"
+    "<label>WiFi Network Name (SSID)</label>"
+    "<input type='text' name='ssid' placeholder='Your network name' required>"
+    "<label>WiFi Password</label>"
+    "<div style='position:relative;'>"
+    "<input type='password' name='pass' id='wpass' placeholder='Your password' style='padding-right:44px;'>"
+    "<button type='button' onclick='togglePass()' id='peye'"
+    " style='position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;"
+    "border:none;color:#4a5568;cursor:pointer;font-size:1rem;padding:0;width:auto;margin:0;'>👁</button>"
+    "</div>"
+    "<script>function togglePass(){"
+    "var i=document.getElementById('wpass');"
+    "var b=document.getElementById('peye');"
+    "if(i.type==='password'){i.type='text';b.style.color='#00e5ff';}"
+    "else{i.type='password';b.style.color='#4a5568';}"
+    "}</script>"
+    "<label>Board Name <span style='color:#4a5568'>(optional)</span></label>"
+    "<input type='text' name='name' id='bname' placeholder='e.g. Greenhouse North' maxlength='31'"
+    " oninput=\"validateName(this)\">"
+    "<div id='namewarn' style='color:#ffaa00;font-size:0.65rem;margin-top:6px;display:none;'>"
+    "⚠ Use only letters, numbers, spaces and hyphens.</div>"
+    "<div class='note'>Board name sets your network address:<br>"
+    "e.g. \"Greenhouse North\" → greenhouse-north.local<br>"
+    "Leave blank to use the default: automato-XXXX.local<br><br>To reset WiFi credentials: hold the Boot button for 5&ndash;7 seconds while the board is starting up.</div>"
+    "<button type='button' onclick='submitForm()'>Save &amp; Connect</button>"
+    "</form>"
+    "<script>"
+    "function validateName(el){"
+    "  var bad=/[^a-zA-Z0-9 \\-]/g;"
+    "  var w=document.getElementById('namewarn');"
+    "  w.style.display=bad.test(el.value)?'block':'none';"
+    "}"
+    "function submitForm(){"
+    "  var n=document.getElementById('bname').value;"
+    "  var bad=/[^a-zA-Z0-9 \\-]/g;"
+    "  if(bad.test(n)){document.getElementById('namewarn').style.display='block';return;}"
+    "  document.querySelector('form').submit();"
+    "}"
+    "</script>"
+    "</div>"
+    "</body></html>"
+  );
+  server.send(200, "text/html", html);
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /setup  POST — save credentials to NVS and reboot
+// ─────────────────────────────────────────────
+void handleSetupPost() {
+  if (!server.hasArg("ssid") || server.arg("ssid").length() == 0) {
+    server.send(400, "text/plain", "SSID required.");
+    return;
+  }
+
+  String ssid  = server.arg("ssid");
+  String pass  = server.arg("pass");
+  String bname = server.arg("name");
+  bname.trim();
+
+  prefs.begin("automato", false);
+  prefs.putString("ssid", ssid);
+  prefs.putString("pass", pass);
+  prefs.putString("name", bname);
+  prefs.end();
+
+  Serial.printf("Credentials saved. SSID: %s  Name: %s\n",
+                ssid.c_str(), bname.length() > 0 ? bname.c_str() : "(default)");
+
+  String html = F(
+    "<!DOCTYPE html><html><head>"
+    "<meta charset='UTF-8'>"
+    "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+    "<title>Automato Setup</title>"
+    "<style>"
+    "body{font-family:monospace;background:#090b0e;color:#dde3ee;margin:0;padding:24px;}"
+    "h1{color:#2ddf82;font-size:1.4rem;margin-bottom:4px;}"
+    "p{color:#4a5568;font-size:0.8rem;}"
+    ".card{background:#10141a;border:1px solid #1a2030;border-radius:10px;padding:24px;max-width:400px;}"
+    "</style></head><body>"
+    "<h1>✓ Saved!</h1>"
+    "<div class='card'>"
+    "<p>Your board is connecting to your network now.</p>"
+    "<p style='margin-top:12px;'>Reconnect your device to your regular WiFi network, "
+    "then open your board at its new address.</p>"
+    "<p style='margin-top:12px;color:#00e5ff;' id='cdmsg'>Rebooting in 3 seconds…</p>"
+    "</div>"
+    "<script>"
+    "var s=3;"
+    "var el=document.getElementById('cdmsg');"
+    "var iv=setInterval(function(){"
+    "  s--;"
+    "  if(s>0){el.textContent='Rebooting in '+s+' second'+(s===1?'':'s')+'\u2026';}"
+    "  else{el.textContent='Rebooting… reconnect to your WiFi and open the dashboard.';clearInterval(iv);}"
+    "},1000);"
+    "</script>"
+    "</body></html>"
+  );
+  server.send(200, "text/html", html);
+  delay(3000);
+  ESP.restart();
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /wifi/reset  POST — clear credentials and reboot
+// Called from dashboard Reset WiFi button
+// ─────────────────────────────────────────────
+void handleWifiReset() {
+  prefs.begin("automato", false);
+  prefs.clear();
+  prefs.end();
+  Serial.println("WiFi credentials cleared via dashboard. Rebooting.");
+  server.send(200, "application/json", "{\"ok\":true,\"message\":\"Credentials cleared. Rebooting.\"}");
+  delay(500);
+  ESP.restart();
+}
+
+// ─────────────────────────────────────────────
+// Setup
+// ─────────────────────────────────────────────
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+
+  pinMode(PIN_LED_R, OUTPUT); digitalWrite(PIN_LED_R, LOW);
+  pinMode(PIN_LED_B, OUTPUT); digitalWrite(PIN_LED_B, LOW);
+
+  Serial.printf("\n=== Automato Brain Board Host v%s ===\n", FIRMWARE_VERSION);
+
+  // ── LittleFS ──────────────────────────────────
+  // Mount filesystem. If corrupt or blank, format and seed webapp files
+  // from PROGMEM. Future webapp updates use /update/filesystem OTA endpoint.
+  Serial.print("LittleFS... ");
+  lfsOk = LittleFS.begin(false);
+  if (!lfsOk) {
+    Serial.print("mount failed, formatting... ");
+    LittleFS.format();
+    lfsOk = LittleFS.begin(false);
+  }
+  if (lfsOk) {
+    // Seed webapp files if missing (first boot after factory flash)
+    if (!LittleFS.exists("/index.html")) {
+      Serial.print("seeding... ");
+      File f = LittleFS.open("/index.html", "w");
+      if (f) { f.print(FPSTR(DASHBOARD_HTML)); f.close(); }
+    }
+    if (!LittleFS.exists("/version.txt")) {
+      File f = LittleFS.open("/version.txt", "w");
+      if (f) { f.println(WEBAPP_VERSION); f.close(); }
+    }
+    // Read webapp version once into global
+    File vf = LittleFS.open("/version.txt", "r");
+    if (vf) {
+      String v = vf.readStringUntil('\n'); v.trim();
+      v.toCharArray(webappVersion, sizeof(webappVersion));
+      vf.close();
+    }
+    Serial.printf("OK  (firmware v%s / webapp v%s)\n", FIRMWARE_VERSION, webappVersion);
+  } else {
+    Serial.println("FAILED — dashboard will not be served");
+  }
+
+  // ── TCA9534 Qwiic GPIO Expander ──────────────
+  // Must init before sensors — relay defaults OFF immediately
+  Wire.begin(PIN_SDA, PIN_SCL);
+  Serial.print("TCA9534 GPIO expander... ");
+  if (gpio0.begin(Wire, 0x27)) {
+    gpio0.pinMode(0, GPIO_OUT);
+    gpio0.digitalWrite(0, LOW);
+    gpioOk = true;
+    Serial.println("OK — Relay pin 0 LOW (OFF)");
+  } else {
+    gpioOk = false;
+    Serial.println("FAILED — relay unavailable");
+  }
+
+  // ── Sensors ──────────────────────────────────
+  Serial.print("SHTC3... ");
+  if (shtc3.begin()) { b1_shtcOk = true; Serial.println("OK"); }
+  else Serial.println("FAILED");
+
+  Serial.print("TSL2591... ");
+  if (tsl.begin()) {
+    tsl.setGain(TSL2591_GAIN_MED);
+    tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
+    b1_tslOk = true;
+    Serial.println("OK");
+  } else Serial.println("FAILED");
+
+  // ── Boot button — hold 5s to clear credentials ──
+  // Brief window for user to move finger from Reset to Boot button
+  delay(1500);
+  pinMode(PIN_BOOT, INPUT_PULLUP);
+  Serial.print("Boot button check... ");
+  if (digitalRead(PIN_BOOT) == LOW) {
+    Serial.print("held, waiting 5s to confirm (hold 5-7s)... ");
+    unsigned long held = millis();
+    while (digitalRead(PIN_BOOT) == LOW && millis() - held < 5000) {
+      delay(100);
+      digitalWrite(PIN_LED_R, (millis() / 200) % 2);  // fast red blink
+    }
+    if (millis() - held >= 5000) {
+      prefs.begin("automato", false);
+      prefs.clear();
+      prefs.end();
+      digitalWrite(PIN_LED_R, LOW);
+      Serial.println("credentials cleared. Rebooting.");
+      delay(500);
+      ESP.restart();
+    }
+  }
+  digitalWrite(PIN_LED_R, LOW);
+  Serial.println("OK");
+
+  // ── Load credentials and board name from NVS ──
+  prefs.begin("automato", true);  // read-only
+  String ssid  = prefs.getString("ssid", "");
+  String pass  = prefs.getString("pass", "");
+  String bname = prefs.getString("name", "");
+  prefs.end();
+
+  ssid.toCharArray(wifiSSID,     sizeof(wifiSSID));
+  pass.toCharArray(wifiPassword, sizeof(wifiPassword));
+  bname.toCharArray(boardName,   sizeof(boardName));
+  hasCredentials = (strlen(wifiSSID) > 0);
+
+  // ── WiFi — AP+STA simultaneous ────────────
+  WiFi.mode(WIFI_AP_STA);
+
+  // ── Derive AP SSID and mDNS hostname from MAC ──
+  // Must read MAC after WiFi.mode() so the radio is initialized
+  String mac     = WiFi.macAddress();
+  String macSufx = mac.substring(12, 14) + mac.substring(15, 17);
+  macSufx.toUpperCase();
+  macSufx.replace(":", "");
+
+  if (strlen(boardName) > 0) {
+    // User has set a custom name — use it for both AP and mDNS
+    snprintf(apSSID,   sizeof(apSSID),   "%s", boardName);
+    // mDNS hostname: lowercase, spaces → hyphens
+    String mn = bname;
+    mn.toLowerCase();
+    mn.replace(" ", "-");
+    mn.toCharArray(mdnsName, sizeof(mdnsName));
+  } else {
+    snprintf(apSSID,   sizeof(apSSID),   "Automato-%s", macSufx.c_str());
+    snprintf(mdnsName, sizeof(mdnsName), "automato-%s", macSufx.c_str());
+    // lowercase the suffix for mDNS
+    for (int i = 0; mdnsName[i]; i++) mdnsName[i] = tolower(mdnsName[i]);
+  }
+
+  // Start SoftAP (always — this is our permanent fallback interface)
+  // ssid, password, channel, hidden, max_connection
+  bool apOk = WiFi.softAP(apSSID, nullptr, 1, false, 4);
+  delay(200);  // give AP time to fully initialize before reading IP
+  Serial.printf("SoftAP started: %s  channel=1  IP=%s  ok=%d\n",
+                apSSID, WiFi.softAPIP().toString().c_str(), apOk);
+  // Captive portal: respond to all DNS queries with our IP so phones auto-redirect
+  dnsServer.start(53, "*", WiFi.softAPIP());
+
+  Serial.printf("Board 1 MAC: %s\n", WiFi.macAddress().c_str());
+
+  // Attempt STA connection if credentials are stored
+  if (hasCredentials) {
+    Serial.printf("Connecting to WiFi: %s\n", wifiSSID);
+    WiFi.begin(wifiSSID, wifiPassword);
+
+    int tries = 0;
+    while (WiFi.status() != WL_CONNECTED && tries < 40) {
+      delay(500); Serial.print("."); tries++;
+    }
+    Serial.println();
+
+    if (WiFi.status() == WL_CONNECTED) {
+      wifiConnected = true;
+      Serial.printf("WiFi connected! IP: %s\n", WiFi.localIP().toString().c_str());
+      Serial.printf("Dashboard: http://%s\n",   WiFi.localIP().toString().c_str());
+      Serial.printf("Dashboard: http://%s.local\n", mdnsName);
+      Serial.printf("Updates:   http://%s/update\n", WiFi.localIP().toString().c_str());
+      digitalWrite(PIN_LED_B, HIGH);
+
+      // Start mDNS
+      if (MDNS.begin(mdnsName)) {
+        MDNS.addService("http", "tcp", 80);
+        Serial.printf("mDNS: http://%s.local\n", mdnsName);
+      } else {
+        Serial.println("mDNS failed to start.");
+      }
+    } else {
+      Serial.println("WiFi connection failed. Running in setup mode.");
+      for (int i = 0; i < 6; i++) {
+        digitalWrite(PIN_LED_R, HIGH); delay(200);
+        digitalWrite(PIN_LED_R, LOW);  delay(200);
+      }
+    }
+  } else {
+    Serial.println("No WiFi credentials stored. Running in setup mode.");
+    Serial.println("Connect to: " + String(apSSID));
+    Serial.println("Then open:  http://192.168.4.1/setup");
+  }
+
+  // ── LR on AP only, after WiFi connects ───────
+  // AP stays on standard 802.11b/g/n — LR is Espressif-only, invisible to phones/laptops
+  // esp_wifi_set_protocol(WIFI_IF_AP, WIFI_PROTOCOL_LR);  // REMOVED
+  // Enable LR on STA interface for ESP-NOW long range
+  esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N | WIFI_PROTOCOL_LR);
+
+  // ── ESP-NOW ───────────────────────────────────
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW init FAILED.");
+  } else {
+    esp_now_register_recv_cb(onDataReceived);
+    Serial.println("ESP-NOW ready.");
+  }
+
+  // ── Web server ────────────────────────────────
+  server.on("/",                          handleRoot);
+  server.on("/data",                      handleData);
+  server.on("/version",                   handleVersion);
+  server.on("/relay",                     handleRelay);
+  server.on("/relay/status",              handleRelayStatus);
+  server.on("/i2c-scan",                  handleI2CScan);
+  server.on("/setup",          HTTP_GET,  handleSetupGet);
+  server.on("/setup",          HTTP_POST, handleSetupPost);
+  server.on("/wifi/reset",     HTTP_POST, handleWifiReset);
+  server.on("/update",         HTTP_GET,  handleUpdatePage);
+  server.on("/update/firmware", HTTP_POST,
+    handleUpdateFirmwareDone, handleUpdateFirmware);
+  server.on("/update/filesystem", HTTP_POST,
+    handleUpdateFilesystemDone, handleUpdateFilesystem);
+  // Captive portal: redirect any unrecognised URL to /setup
+  server.onNotFound([](){
+    server.sendHeader("Location", "http://192.168.4.1/setup", true);
+    server.send(302, "text/plain", "");
+  });
+  server.begin();
+
+  Serial.println("Web server started.");
+  Serial.println("  GET  /                    → dashboard (LittleFS)");
+  Serial.println("  GET  /data                → sensor + relay JSON");
+  Serial.println("  GET  /version             → firmware + webapp version");
+  Serial.println("  GET  /relay               → relay control");
+  Serial.println("  GET  /relay/status        → relay state");
+  Serial.println("  GET  /i2c-scan            → I2C bus scan JSON");
+  Serial.println("  GET  /setup               → WiFi provisioning form");
+  Serial.println("  POST /setup               → save WiFi credentials");
+  Serial.println("  POST /wifi/reset          → clear credentials + reboot");
+  Serial.println("  GET  /update              → OTA update UI");
+  Serial.println("  POST /update/firmware     → OTA firmware upload");
+  Serial.println("  POST /update/filesystem   → OTA webapp upload");
+}
+
+// ─────────────────────────────────────────────
+// Loop
+// ─────────────────────────────────────────────
+void loop() {
+  dnsServer.processNextRequest();
+  server.handleClient();
+
+  // Rule engine hook — not active in Stage 1
+  // evaluateRules() called here in Stage 2 when !manualOverride
+  // evaluateRules();
+
+  // Heartbeat blink every 5s when connected to WiFi
+  static unsigned long lastBlink = 0;
+  if (millis() - lastBlink > 5000 && wifiConnected) {
+    lastBlink = millis();
+    digitalWrite(PIN_LED_B, LOW); delay(60); digitalWrite(PIN_LED_B, HIGH);
+  }
+}
