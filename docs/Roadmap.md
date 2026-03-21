@@ -1,6 +1,6 @@
 # Automato Brain Board — Product Roadmap
 
-Last updated: 2026-03-19
+Last updated: 2026-03-21
 
 This document captures the planned development path for the Automato Brain Board
 firmware, dashboard, and automato.ag platform integration. It is a living document
@@ -13,15 +13,20 @@ firmware, dashboard, and automato.ag platform integration. It is a living docume
 - **Offline first** — the board must function without internet or even a browser open
 - **Progressive enhancement** — each tier adds capability without breaking the tier below
 - **No lock-in** — users have full access to their sketch code at all times
-- **Safe by default** — relays and outputs always default OFF under any failure condition
+- **Safe by default** — outputs default to their hardware-defined failsafe state under any failure
 - **Useful out of the box** — a new Brain Board should be immediately functional
   with no configuration, no internet, and no external tools required
+- **Non-proprietary** — third-party I2C devices and hardware are first-class citizens;
+  Automato hardware integrates into other ecosystems and vice versa
+- **Novice-accessible** — most users are not programmers; every feature must be
+  reachable without writing code; intermediate users should be able to extend
+  without forking
 
 ---
 
 ## The Stem Cell Concept
 
-The Brain Board ships with a Base Firmware — a stable, minimal foundation
+The Brain Board ships with Base Firmware — a stable, minimal foundation
 analogous to stem cells in biology. Like stem cells, it is undifferentiated: it
 contains the basic machinery of life and the ability to become anything, but has
 not yet specialised into a specific function.
@@ -35,7 +40,32 @@ The base firmware is:
 - Trusted — the known-good fallback if a feature firmware update fails
 - Self-sufficient — hosts a complete webapp locally, works with no internet
 - Aware — scans I2C on boot, knows what hardware is connected
-- Connected — registers with automato.ag when internet is available
+
+---
+
+## UX Architecture
+
+Three additive layers — each lower layer always works regardless of upper layer availability:
+
+| Layer | Access | Features |
+|-------|--------|---------|
+| `index.html` (offline) | Local network only | All core features — sensor readings, relay control, rules, settings |
+| `index.html` (online) | Local network + internet | Core features + internet-dependent features (Agri Data, weather) |
+| automato.ag | Any network | Extended UX too large for the board + remote viewing |
+
+**All user data lives on the board.** automato.ag holds only an ephemeral relay cache —
+no user accounts, no stored preferences, no email, no registration required.
+
+---
+
+## Cloud Identity
+
+- Automato Network Name and password are set during `/setup`
+- Cloud token = `hash(Automato Network Name + password)` — derived locally on the board
+- Network Name alone → mesh membership (boards find each other)
+- Network Name + Password → cloud identity (board authenticates to automato.ag relay)
+- automato.ag never sees credentials — only the derived token
+- Auto-generated default name (e.g. `automato-garden-7e20`) makes collision negligible without hardware salt
 
 ---
 
@@ -48,10 +78,9 @@ Base Firmware
 ├── WiFi provisioning (AP mode on first boot, STA mode after setup)
 ├── OTA update receiver (/update endpoint)
 ├── Basic sensor reading (SHTC3, TSL2591)
-├── I2C scan on boot — detects connected Qwiic devices
+├── I2C scan on boot — detects connected devices
 ├── Offline webapp (served from LittleFS)
-├── NVS storage for WiFi credentials and device settings
-└── automato.ag registration (when internet available)
+└── NVS storage for WiFi credentials and device settings
 ```
 
 ### First Boot Experience (no internet required)
@@ -62,9 +91,9 @@ Base Firmware
 4. Opens http://192.168.4.1 in browser
 5. Full Automato webapp loads directly from the board
 6. User sees live sensor readings immediately
-7. User enters their WiFi credentials — board joins their network
-8. Board now accessible at http://brainboard.local
-9. If internet available — board registers with automato.ag
+7. User enters their WiFi credentials and optionally sets Automato Network Name + password
+8. Board joins their network, accessible at http://brainboard.local
+9. If internet available — board registers with automato.ag via derived cloud token
 
 ### After First Boot
 
@@ -75,56 +104,7 @@ Base Firmware
 
 ---
 
-## Offline Webapp
-
-### Concept
-
-The Brain Board hosts a complete, self-contained Automato webapp served directly
-from its own flash memory. No internet required. No automato.ag required.
-Works in a field with no cell service.
-
-### Three Hosting Contexts
-
-The Automato webapp operates in three contexts, with graceful degradation:
-
-```
-Context 1 — Served from Brain Board (always available)
-  Loaded from LittleFS on ESP32 flash
-  Works completely offline
-  Works without automato.ag
-  Limited by available flash (~1-2MB for webapp)
-  Updated via OTA filesystem update
-
-Context 2 — Served from automato.ag (full featured)
-  Unlimited size and capability
-  Cloud compile, template library, multi-device management
-  Communicates with board via local network or cloud relay
-  Requires internet access
-
-Context 3 — Both simultaneously (optimal)
-  Board serves base UI
-  automato.ag enhances with cloud features when internet available
-  Graceful degradation to Context 1 when offline
-  User experience is continuous across connectivity states
-```
-
-### Offline Webapp Feature Set
-
-| Feature | Offline | With Internet |
-|---|---|---|
-| Live sensor dashboard | Yes | Yes |
-| I2C device scanner | Yes | Yes |
-| Relay manual control | Yes | Yes |
-| WiFi configuration | Yes | Yes |
-| OTA firmware update (manual .bin upload) | Yes | Yes |
-| Agri Data sidebar (Open-Meteo etc.) | No | Yes |
-| Cloud compile and flash | No | Yes |
-| Template library | No | Yes |
-| Multi-device management | No | Yes |
-| Historical data charts | No | Yes |
-| Remote access | No | Yes |
-
-### Flash Memory Layout (4MB)
+## Flash Memory Layout (4MB)
 
 ```
 4MB Flash
@@ -136,157 +116,133 @@ Context 3 — Both simultaneously (optimal)
 
 ---
 
-## LittleFS Migration
+## Firmware Version Roadmap
 
-### Why This Matters
+| Version | Scope | Status |
+|---------|-------|--------|
+| v0.8.1 | Tab nav shell, I2C Scanner tab, `/i2c-scan` endpoint | ✅ complete |
+| v0.9 | Devices tab + Automato Network Name in `/setup` | next |
+| v1.0 | Rules tab + Settings tab + plugin hooks + recipe database | target |
+| v1.1 | ESP-Mesh-Lite multi-board mesh | post-v1.0 |
 
-Currently the dashboard HTML is embedded in the sketch as a PROGMEM string.
-This approach works but does not scale — every UI change requires a full firmware
-reflash, and the dashboard size is limited by available RAM.
+### v0.9 Scope
 
-### The LittleFS Approach
+**Devices tab:**
+- Reuses `/i2c-scan` + `/data` — no new firmware endpoints needed
+- Unknown device badge on any device not in the built-in or user database
+- User definition form: name, description, category, datasheet URL, hub flag
+- `/user_devices.json` stored in LittleFS — portable, designed for future mesh/cloud sync
 
-Migrating the webapp to LittleFS means:
-- HTML, CSS, and JS stored as actual files on the ESP32 filesystem
-- Webapp can be updated independently of firmware (separate OTA partition)
-- Much larger webapp possible (~2MB vs current ~73KB)
-- Firmware updates and webapp updates are decoupled
+**`/setup` additions:**
+- Automato Network Name field (auto-generated default, user-editable)
+- Password field (strongly suggested, not required)
+- Individual board name field remains unchanged (already in NVS)
 
-### Migration Plan
+### v1.0 Scope
 
-Completed in v0.7. Dashboard HTML served from LittleFS. Firmware and webapp update independently via OTA.
+- All five tabs functional (Dashboard, I2C Scanner, Devices, Rules, Settings)
+- Plugin hook architecture (see below)
+- Curated recipe database: 20–30 most common DIY sensors pre-defined in webapp
+- Stable REST API — no breaking changes after v1.0
 
----
+### v1.0 Shippability Checklist
 
-## Firmware Roadmap
-
-### Stage 2 — Tier 3 Offline Rule Engine
-Target: v0.9
-
-- Rule builder UI in dashboard sidebar
-- Rules stored in NVS via Arduino Preferences library
-- evaluateRules() activated in loop() when manualOverride is false
-- "Auto" mode toggle in dashboard releases manualOverride — rule engine takes over
-- /rules GET/POST endpoints for saving/loading rules
-- Offline mode indicator in dashboard
-- Note: WiFi failover/heartbeat detection deferred to Stage 3 — Tier 2 does not
-  exist yet, so there is nothing to fail over from. manualOverride toggle is the
-  correct mechanism for now.
-
-### Stage 3 — Tier 2 Browser Rule Engine
-
-- Full rule builder UI with condition editor
-- Rules evaluated in browser JavaScript when dashboard tab is open
-- Sends relay commands to board via existing /relay endpoint
-- Operates on local network without internet
-- Falls back to Tier 3 when browser closed
-
-## v1.0 Shippability Checklist
-
-Everything on this list must be complete before Brain Board ships to users.
-
-- [ ] Hardware auto-detection — I2C scan on boot, results in /data JSON
-- [ ] Stable API surface — all endpoints documented, no breaking changes after v1.0
-- [ ] Pre-built `.bin` on GitHub — users can flash without Arduino IDE
-- [ ] OTA update flow verified end-to-end as a first-time user would experience it:
-      firmware update + filesystem update via /update page, clear UI, version
-      display before and after, board recovers cleanly
-- [ ] OTA update instructions in QuickStart.md — non-technical user can follow
-      without assistance
-- [ ] ESP-Mesh-Lite migration decision made — or explicitly deferred with rationale
-- [ ] Board naming system designed and implemented (requires mesh decision first)
+- [ ] All five tabs functional
+- [ ] Plugin hook architecture implemented (`customSetup`, `customLoop`, `customDataJSON`)
+- [ ] Curated device recipe database in webapp (novice one-click apply)
+- [ ] `/setup` includes Automato Network Name + password fields
+- [ ] Hardware auto-detection on boot, results in `/data` JSON
+- [ ] Stable documented API — no breaking changes after v1.0
+- [ ] Pre-built `.bin` on GitHub — flash without Arduino IDE
+- [ ] OTA update flow verified end-to-end
+- [ ] OTA instructions in QuickStart.md
 
 ---
 
-### Stage 4 — Tier 1 Cloud Rule Engine (automato.ag)
+## Plugin Hook Architecture (v1.0)
 
-- Rules stored and evaluated on automato.ag server
-- 24/7 operation without browser open
-- Historical data logging
-- Multi-device management
-- Alert/notification system
-- Requires automato.ag backend (see Platform Roadmap)
+Intermediate users can add any Arduino library and custom sensor support without
+touching the base firmware. Arduino concatenates all `.ino` files in a sketch folder
+at compile time.
+
+Base firmware defines weak hook functions — user implements them in `custom.ino`:
+
+```cpp
+// In BrainBoard_Host.ino — user never modifies this file
+void __attribute__((weak)) customSetup() {}
+void __attribute__((weak)) customLoop() {}
+String __attribute__((weak)) customDataJSON() { return "{}"; }
+```
+
+`customDataJSON()` return value is merged into the `/data` response — custom sensor
+values appear in the dashboard and are available to the rule engine automatically.
+
+When base firmware updates: user replaces `BrainBoard_Host.ino` only. `custom.ino` is untouched.
+
+Phase 2 cloud compile generates `custom.ino` from library templates — same architecture,
+no friction for novice users.
 
 ---
 
-## Dashboard Roadmap
+## Unrecognized I2C Device Usability
 
-### Completed
+| Level | User | Mechanism | Available |
+|-------|------|-----------|-----------|
+| 0 | Novice | Built-in recipe database — one-click apply | v1.0 |
+| 1 | Novice | Community recipe database — search and apply | Phase 3 |
+| 2 | Intermediate | `custom.ino` plugin hook + Arduino library | v1.0 |
+| 3 | Advanced | Full firmware fork | Always |
 
-- OTA Firmware Update panel — upload compiled .bin from browser ✅ v0.7
-- LittleFS migration — webapp served from filesystem, independent OTA updates ✅ v0.7
-- mDNS support — board reachable at http://boardname.local ✅ v0.8
-- AP mode first-boot provisioning — captive portal, NVS credentials ✅ v0.8
-
-### Near Term
-
-- I2C Bus Scanner panel — live scan from dashboard, device identification,
-  browser-side device database (125+ devices from i2cdevices.org)
-  Target: v0.8.1 (standalone small release before v0.9)
-
-- Rule builder UI — Tier 3 offline rule engine, NVS storage, /rules endpoints
-  Target: v0.9
-
-### Medium Term
-
-- Stage 3 — Tier 2 browser rule engine (WiFi failover + heartbeat detection)
-- Board naming system — deferred until after ESP-Mesh-Lite migration decision;
-  each board owns its name in NVS and broadcasts it in payload
-- Multi-board management view
-- Historical sensor data charts (requires data storage)
-- Alert configuration UI
+Novices with devices not in any database cannot use them until Level 0 or 1 coverage
+exists. Document this clearly in user-facing materials.
 
 ---
 
 ## Platform Roadmap (automato.ag)
 
-### Phase 1 — Cloud Compile + Local OTA
-Minimal infrastructure, maximum impact
+### Phase 1 — Cloud Relay (Remote Viewing)
+
+Goal: User can view their board's sensor data from any network, without user accounts.
+
+Components:
+- Board pushes sensor readings to automato.ag on interval (HTTP POST)
+- Server stores latest readings in ephemeral relay cache keyed by cloud token
+- automato.ag dashboard fetches and displays readings for the matching token
+- NAT traversal: board maintains persistent outbound WebSocket — enables
+  automato.ag to send commands (relay control, settings) back to the board
+- No user accounts, no email, no registration
+
+User flow:
+1. User sets Automato Network Name + password in `/setup`
+2. Board derives cloud token locally and registers with automato.ag
+3. User visits automato.ag, enters Network Name + password
+4. automato.ag derives same token, fetches their board's data
+5. Dashboard shows live readings from any network, any device
+
+### Phase 2 — Cloud Compile
 
 Goal: User never needs Arduino IDE after first flash.
 
 Components:
 - Arduino CLI hosted on automato.ag server
 - Automato board package installed on server
-- Monaco Editor (VS Code editor) embedded in automato.ag webpage
-- Pre-made .ino template library (relay control, soil monitoring, etc.)
-- Compile API endpoint: accepts .ino, returns compiled .bin
-- /update OTA endpoint on Brain Board (receives .bin, flashes, reboots)
-- Browser acts as relay: downloads .bin from automato.ag, pushes to board
-  on local network via http://brainboard.local/update
+- Monaco Editor (VS Code engine) embedded in automato.ag
+- Pre-made `.ino` template library (relay control, soil monitoring, etc.)
+- Compile API: accepts `.ino` + `custom.ino`, returns compiled `.bin`
+- Browser acts as relay: downloads `.bin` from automato.ag, pushes to board
+  on local network via `/update` endpoint
 
-User flow:
-1. Brain Board ships with base firmware pre-installed
-2. User powers board, connects to Automato-XXXX AP
-3. Configures WiFi via offline webapp at http://192.168.4.1
-4. Board joins network, registers with automato.ag
-5. User opens automato.ag, board appears in their account
-6. I2C scan shows connected hardware — automato.ag suggests templates
-7. User selects or edits template in Monaco Editor
-8. Clicks Compile and Flash
-9. automato.ag compiles, browser downloads .bin, browser pushes to board
-10. Board flashes and reboots — no USB cable, no Arduino IDE ever again
+Limitation: Browser must be open on the same local network as the board for OTA.
 
-Limitation: Browser must be open on the same local network as the board.
+### Phase 3 — Community Device Recipe Database
 
-### Phase 2 — Full Cloud Relay + Remote OTA
-Board is remotely accessible from anywhere
+Goal: Novice users can use any device another community member has already defined.
 
-Components (builds on Phase 1):
-- Device registration system (device token per board)
-- Data relay backend: board POSTs sensor data to automato.ag on interval
-- Hosted dashboard on automato.ag showing live + historical data
-- Firmware update queue: automato.ag stores pending .bin, board polls and
-  self-flashes without browser open
-- User accounts with multi-device support
-- Alert/notification system
-
-User flow (OTA):
-1. User edits/selects template on automato.ag
-2. Clicks Compile and Flash
-3. automato.ag compiles and queues firmware for device
-4. Board polls, downloads .bin directly from automato.ag, flashes, reboots
-5. Works from anywhere — board does not need to be on same network as user
+Components:
+- Public device recipe search on automato.ag
+- Community submission flow — no account required (GitHub PR model or anonymous submit)
+- Recipes are public domain, attributed but not locked to a user
+- Automato curates and validates submissions
 
 ---
 
@@ -295,7 +251,7 @@ User flow (OTA):
 ```
 Tier 1 — Cloud (automato.ag)
   Full rule evaluation on server
-  All data sources available
+  All data sources available (sensor data + Agri Data + weather)
   24/7, no browser required
   Requires internet + automato.ag uptime
     |
@@ -312,13 +268,12 @@ Tier 3 — On-board (offline)
   Local sensor data only
   No network required
   Always running as safety net
-  Relay defaults OFF if no rules match
+  Relay defaults to failsafe state if no rules match
 ```
 
 Failover: Tiers activate downward automatically on loss of higher tier.
 Recovery: Board resumes highest available tier when connectivity restored.
-Heartbeat: Configurable timeout — if no signal from higher tier within X
-seconds, Tier 3 takes over.
+Heartbeat: Configurable timeout — if no signal from higher tier within X seconds, Tier 3 takes over.
 
 ---
 
@@ -328,7 +283,7 @@ seconds, Tier 3 takes over.
 - Conditions compare sensor values: above / below / equals threshold
 - Logic operators between conditions: AND, OR, NOT, XOR
 - Conflict resolution: highest priority rule wins
-- If no rules fire: relay defaults OFF
+- If no rules fire: relay defaults to hardware-defined failsafe state
 - Manual dashboard toggle always overrides all rules regardless of priority
 - Multiple rules can target the same relay — priority resolves conflicts
 
@@ -336,12 +291,58 @@ seconds, Tier 3 takes over.
 
 ## Relay Safety Contract
 
-This is non-negotiable at every tier and every version:
-
-Relays default OFF under all failure conditions.
+Outputs default to the **hardware-defined failsafe state** under all failure conditions.
 This includes: boot, sensor failure, WiFi loss, cloud loss, browser closed,
 no rules configured, conflicting rules, and hardware expander not found.
-There is no condition under which a relay defaults ON.
+
+**Failsafe state is hardware-selectable per output board** (next PCB revision and all
+future output boards): a physical jumper selects Normally ON or Normally OFF.
+A GPIO sense pin reads the jumper position at boot. The dashboard displays the
+active failsafe mode prominently — amber warning if Normally ON.
+
+Current Brain Board V2.0: failsafe = Normally OFF (hardcoded, no jumper on current hardware).
+
+Rationale: Agricultural failure modes are asymmetric. A heater should default ON
+(frost protection). A flood pump should default OFF. The installer, not the firmware,
+makes this decision.
+
+---
+
+## Multi-Board Networking
+
+### Current Architecture (ESP-NOW Star Topology)
+
+```
+Router <-> Host Board <-> Remote 1
+                     <-> Remote 2
+```
+
+All remote boards must be within ESP-NOW LR range of the host.
+Fixed roles: user designates board closest to router as Host.
+
+### Planned Architecture (ESP-Mesh-Lite) — target v1.1
+
+```
+Router <-> Board 1 <-> Board 2 <-> Board 3
+                              <-> Board 4
+```
+
+Any board only needs to reach its nearest neighbour. Self-forming and self-healing.
+Dynamic root election — board closest to router becomes root automatically.
+Boards identified by Automato Network Name — same name = same mesh.
+
+**Explicitly listed by Espressif as a smart agriculture target use case.**
+
+| Parameter | Value |
+|---|---|
+| Maximum layers | 15 (5-6 recommended) |
+| Max connections per node | 10 hardware, 6 recommended |
+| Practical network size | 100–500 nodes |
+| Node-to-node distance | <100m stable, ~170m low throughput |
+| Self-forming / self-healing | Yes |
+| Arduino compatibility | To be verified before implementation |
+
+**Action required before v1.1:** Verify ESP-Mesh-Lite Arduino framework compatibility.
 
 ---
 
@@ -352,14 +353,19 @@ There is no condition under which a relay defaults ON.
 | TCA9534 address is 0x27 (not 0x20) | SparkFun Qwiic GPIO has all address jumpers bridged by default |
 | ESP-NOW LR on AP interface only | Setting LR on STA before WiFi connects breaks connection |
 | Highest priority rule wins conflicts | Industry standard. Enables safety override rules. |
-| Relay defaults OFF always | Agricultural safety — unexpected ON state can damage crops, equipment, livestock |
+| Failsafe state is jumper-selectable (next revision) | Agricultural failure modes are asymmetric — installer decides, not firmware |
 | Browser-side external API calls | Keeps firmware lean; no API keys stored on device |
-| Phase 1 OTA uses browser as relay | Avoids need for cloud infrastructure in early phase |
+| Phase 1 platform = cloud relay, not cloud compile | Remote viewing benefits every user; cloud compile is a developer feature |
+| No user accounts on automato.ag | Privacy-first; cloud identity derived from Network Name + password locally |
 | Monaco Editor for cloud IDE | Same engine as VS Code — familiar, powerful, well maintained |
 | Base firmware pre-installed at shipping | Users functional out of box, no tools required |
 | Offline webapp on LittleFS | Updatable independently of firmware; scales beyond PROGMEM limits |
 | AP mode on first boot | True zero-infrastructure setup — works anywhere, no router required |
 | Stem cell architecture | Stable base + specialised OTA overlays = safe, flexible, maintainable |
+| Plugin hook via weak functions + custom.ino | Intermediate users extend without forking; base firmware updates are non-breaking |
+| MicroSD slot on next Brain Board revision | IO18–IO21 are unconnected on V2.0; ~$0.40–$0.60 BOM; enables always-on local logging |
+| EX-01 is optional, not required | Only needed for >8 board types or >1 of same type per bus |
+| Third-party I2C devices are first-class | Automato is explicitly non-proprietary |
 
 ---
 
@@ -374,92 +380,31 @@ There is no condition under which a relay defaults ON.
 | v0.5 | Agri Data sidebar |
 | v0.6 | Manual relay control (Qwiic GPIO) |
 | v0.6.1 | TCA9534 address fix (0x20 → 0x27) |
-| v0.7 | OTA firmware update + LittleFS migration ✅ |
-| v0.8 | WiFi provisioning, captive portal, mDNS, channel scan ✅ |
-| v0.8.1 | I2C scanner panel in dashboard (next) |
-| v0.9 | Tier 3 offline rule engine — NVS rules, rule builder UI |
-| v1.0 | Base firmware — stable, shippable, pre-installed (target) |
-
----
-
-## Multi-Board Networking
-
-### Current Architecture (ESP-NOW Star Topology)
-
-```
-Router <-> Host Board <-> Remote 1
-                     <-> Remote 2
-```
-
-All remote boards must be within ESP-NOW LR range of the host.
-Maximum 20 peers per device (theoretical), 4-8 practical.
-
-### Planned Architecture (ESP-Mesh-Lite)
-
-```
-Router <-> Board 1 <-> Board 2 <-> Board 3
-                              <-> Board 4
-```
-
-Any board only needs to reach its nearest neighbour.
-Range extends across a property by chaining boards together.
-Self-forming and self-healing — boards find their own best path.
-
-**Explicitly listed by Espressif as a smart agriculture target use case.**
-
-### ESP-Mesh-Lite Specifications
-
-| Parameter | Value |
-|---|---|
-| Maximum layers | 15 (5-6 recommended) |
-| Max connections per node | 10 hardware limit, 6 recommended |
-| Practical comfortable network size | 100-500 nodes |
-| Node-to-node distance (stable) | Less than 100m |
-| Node-to-node distance (low throughput) | ~170m |
-| Self-forming | Yes — automatic parent node selection |
-| Self-healing | Yes — automatic reconnection on node failure |
-| OTA support | Yes — built in |
-| Arduino compatibility | To be verified before implementation |
-
-### Node Role Design
-
-Fixed roles recommended for v1.0:
-- User designates the board physically closest to their router as the root node
-- All other boards automatically join the mesh and find their own path
-- Role assignment is a one-time physical decision, not a software configuration
-- Dynamic host election deferred to future roadmap item
-
-### Migration Path from ESP-NOW
-
-Espressif describes ESP-Mesh-Lite as a "quick migration" from existing
-WiFi applications. The current ESP-NOW architecture does not block this
-migration — ESP-Mesh-Lite is a transport layer change only. The three-tier
-automation architecture, rule engine, relay control, and dashboard are
-all unaffected.
-
-**Action required before implementation:** Verify ESP-Mesh-Lite Arduino
-framework compatibility. If not available, assess ESP-IDF integration
-path or Arduino wrapper options.
+| v0.7 | OTA firmware update + LittleFS migration |
+| v0.8 | WiFi provisioning, captive portal, mDNS, channel scan |
+| v0.8.1 | Tab nav shell, I2C Scanner tab, `/i2c-scan` endpoint ✅ |
+| v0.9 | Devices tab + Automato Network Name in `/setup` |
+| v1.0 | All five tabs, plugin hooks, recipe database — stable, shippable |
+| v1.1 | ESP-Mesh-Lite multi-board mesh |
 
 ---
 
 ## ESP32-C6 Unexplored Capabilities
 
-The Brain Board's ESP32-C6 contains several hardware features not yet used
-in current firmware. Each has direct relevance to agricultural IoT use cases.
+The Brain Board's ESP32-C6 contains hardware features not yet used in current firmware.
 Full details in [`docs/ESP32C6_Capabilities.md`](ESP32C6_Capabilities.md).
 
 | Capability | Agricultural Relevance | Roadmap Status |
 |---|---|---|
 | LP (Low-Power) Co-Processor | Run Tier 3 rules while HP core sleeps — enables battery deployment | Future |
 | Wi-Fi 6 TWT | Scheduled radio wake windows — extends battery life on remote nodes | Future |
-| Bluetooth 5 LE | Phone-based provisioning, BLE sensor beacon, WiFi-down fallback | Planned (base firmware) |
-| Zigbee 3.0 / Thread 1.3 | Alternative mesh transport for large multi-board deployments | Under consideration |
-| Die Temperature Sensor | MCU health diagnostic, zero additional hardware | Easy win — any version |
-| Hardware Crypto Accelerators | Practical HTTPS to automato.ag, secure boot for production boards | Phase 2 |
-| Hardware PWM | Richer LED status indicators, buzzer, motor/dimmer control | Future |
-| Hardware Pulse Counter (PCNT) | Flow meters, anemometers, rain gauges — standard precision ag sensors | Future |
+| Bluetooth 5 LE | Phone-based provisioning, BLE sensor beacon, WiFi-down fallback | Planned |
+| Zigbee 3.0 / Thread 1.3 | Alternative mesh transport for large deployments | Under consideration |
+| Die Temperature Sensor | MCU health diagnostic, zero additional hardware | Done (v0.8.1) |
+| Hardware Crypto Accelerators | Practical HTTPS to automato.ag, secure boot for production | Phase 1 |
+| Hardware PWM | Richer LED status, buzzer, motor/dimmer control | Future |
+| Hardware Pulse Counter (PCNT) | Flow meters, anemometers, rain gauges | Future |
 
 Note: LP core, TWT, and 802.15.4 require ESP-IDF, not the Arduino framework.
-This is a known tradeoff — Arduino is used now for development speed.
-Migration to ESP-IDF for specific features is a future consideration.
+Arduino is used now for development speed. ESP-IDF migration for specific
+features is a future consideration.

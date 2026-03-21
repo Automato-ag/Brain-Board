@@ -161,7 +161,7 @@ typedef struct {
 // ─────────────────────────────────────────────
 Adafruit_SHTC3   shtc3;
 Adafruit_TSL2591 tsl(2591);
-TCA9534          gpio0;          // Qwiic GPIO expander at 0x20
+TCA9534          gpio0;          // Qwiic GPIO expander at 0x27
 WebServer        server(80);
 DNSServer        dnsServer;
 
