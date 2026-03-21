@@ -25,3 +25,7 @@ sketch.json
 # Secrets — never commit WiFi credentials
 secrets.h
 config_local.h
+CLAUDE.md
+
+# Local reference documents — not for repo
+Reference Files/

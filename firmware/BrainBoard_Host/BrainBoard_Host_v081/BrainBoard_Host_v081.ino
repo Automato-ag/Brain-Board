@@ -176,6 +176,7 @@ uint16_t b1_visible  = 0;
 uint16_t b1_infrared = 0;
 bool     b1_shtcOk   = false;
 bool     b1_tslOk    = false;
+float    b1_dieTemp  = 0.0;
 
 // ─────────────────────────────────────────────
 // Board 2 sensor state (ESP-NOW)
@@ -383,6 +384,8 @@ void readLocalSensors() {
     float lux    = tsl.calculateLux(b1_visible, b1_infrared);
     b1_lux       = (lux < 0) ? 0 : lux;
   }
+
+  b1_dieTemp = temperatureRead();
 }
 
 // ─────────────────────────────────────────────
@@ -401,14 +404,14 @@ void handleData() {
     case TSL2591_GAIN_MAX:  gainLabel = "MAX (9876x)"; break;
   }
 
-  char json[1200];
+  char json[1250];
   snprintf(json, sizeof(json),
     "{"
       "\"b1\":{"
         "\"tempC\":%.2f,\"tempF\":%.2f,\"humidity\":%.2f,"
         "\"lux\":%.2f,\"visible\":%u,\"infrared\":%u,"
         "\"shtcOk\":%s,\"tslOk\":%s,\"gain\":\"%s\","
-        "\"uptime\":%lu"
+        "\"uptime\":%lu,\"dieTemp\":%.1f"
       "},"
       "\"b2\":{"
         "\"tempC\":%.2f,\"tempF\":%.2f,\"humidity\":%.2f,"
@@ -427,7 +430,7 @@ void handleData() {
     b1_lux, b1_visible, b1_infrared,
     b1_shtcOk ? "true" : "false",
     b1_tslOk  ? "true" : "false",
-    gainLabel, millis() / 1000,
+    gainLabel, millis() / 1000, b1_dieTemp,
     b2_data.tempC, b2_data.tempF, b2_data.humidity,
     b2_data.lux, b2_data.visible, b2_data.infrared,
     b2_data.shtcOk ? "true" : "false",
@@ -581,6 +584,7 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawhtml(
     --temp:      #ff6b8a;
     --hum:       #5de8c1;
     --lux:       #c8ff57;
+    --mcu:       #a78bfa;
     --ok:        #2ddf82;
     --err:       #ff4d6d;
     --agri:      #86efac;
@@ -1091,7 +1095,8 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawhtml(
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 8px; padding: 14px 13px;
     position: relative; overflow: hidden;
-    transition: border-color 0.2s, transform 0.18s, box-shadow 0.2s;
+    max-height: 600px; cursor: pointer;
+    transition: border-color 0.2s, transform 0.18s, box-shadow 0.2s, max-height 0.35s cubic-bezier(0.4,0,0.2,1);
   }
   .card:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--clr) 35%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--clr) 8%, transparent); }
   .card::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background: var(--clr); }
@@ -1099,6 +1104,12 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawhtml(
   .card.c-temp { --clr: var(--temp); }
   .card.c-hum  { --clr: var(--hum);  }
   .card.c-lux  { --clr: var(--lux);  }
+  .card.c-mcu  { --clr: var(--mcu);  }
+  .card.collapsed { max-height: 40px; }
+  .card-label::after { content: '▾'; margin-left: auto; font-size: 0.75rem; color: var(--muted); display: inline-block; transition: transform 0.3s; }
+  .card.collapsed .card-label::after { transform: rotate(-90deg); }
+  #bb-tooltip { position: fixed; background: #141b26; border: 1px solid var(--border); color: var(--text); font-size: 0.65rem; line-height: 1.55; padding: 8px 11px; border-radius: 6px; max-width: 220px; z-index: 9999; pointer-events: none; opacity: 0; transition: opacity 0.15s; }
+  #bb-tooltip.visible { opacity: 1; }
   .card-label { font-size: 0.55rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
   .card-label::before { content:''; width:5px; height:5px; border-radius:50%; background: var(--clr); box-shadow: 0 0 5px var(--clr); flex-shrink:0; }
   .card-value { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(1.6rem,3vw,2rem); line-height: 1; color: var(--clr); transition: color 0.3s; }
@@ -1308,6 +1319,11 @@ const char DASHBOARD_HTML[] PROGMEM = R"rawhtml(
           <div><div class="channel-label">Infrared</div><div class="channel-val" id="b1-ir">—</div></div>
           <div><div class="channel-label">Condition</div><div class="channel-val condition" id="b1-cond">—</div></div>
         </div>
+      </div>
+      <div class="card c-mcu">
+        <div class="card-label">MCU Temp</div>
+        <div class="card-value" id="b1-dietempc">—<span class="unit">°C</span></div>
+        <div class="card-sub" id="b1-dietempf">—</div>
       </div>
     </div>
 
@@ -1692,6 +1708,11 @@ async function fetchData() {
 
     fillBoard('b1', data.b1, false);
     document.getElementById('b1-uptime').textContent = 'up: '+formatUptime(data.b1.uptime);
+    const showC = units === 'metric';
+    const dieC  = data.b1.dieTemp;
+    const dieF  = dieC * 9.0 / 5.0 + 32.0;
+    document.getElementById('b1-dietempc').innerHTML = (showC ? fmt1(dieC)+'<span class="unit">°C</span>' : fmt1(dieF)+'<span class="unit">°F</span>');
+    document.getElementById('b1-dietempf').innerHTML = '<strong>'+(showC ? fmt1(dieF)+' °F' : fmt1(dieC)+' °C')+'</strong>';
 
     const stale = data.b2.stale;
     fillBoard('b2', data.b2, stale);
@@ -1754,6 +1775,49 @@ async function fetchVersion() {
 fetchData();
 fetchVersion();
 setInterval(fetchData, REFRESH_MS);
+
+// ── Card collapse + tooltip ──────────────────────────────────────────────────
+const CARD_TIPS = {
+  'c-temp': 'Ambient air temperature measured by the onboard SHTC3 sensor.',
+  'c-hum':  'Relative humidity from the onboard SHTC3 sensor — how much moisture the air holds as a percentage of its maximum at the current temperature.',
+  'c-lux':  'Light intensity from the onboard TSL2591 sensor in lux, with separate visible and infrared channel counts.',
+  'c-mcu':  'Internal temperature of the ESP32-C6 microcontroller. Typically 10–20°C above ambient when WiFi is active. Elevated readings in a sealed enclosure may indicate thermal stress.',
+};
+const bbTooltip = document.createElement('div');
+bbTooltip.id = 'bb-tooltip';
+document.body.appendChild(bbTooltip);
+let tipTimer = null;
+let tipCard   = null;
+
+document.querySelector('.boards').addEventListener('click', e => {
+  const card = e.target.closest('.card');
+  if (card) card.classList.toggle('collapsed');
+});
+document.querySelector('.boards').addEventListener('mouseover', e => {
+  const card = e.target.closest('.card');
+  if (card === tipCard) return;
+  tipCard = card;
+  clearTimeout(tipTimer);
+  bbTooltip.classList.remove('visible');
+  if (!card) return;
+  const key = Object.keys(CARD_TIPS).find(k => card.classList.contains(k));
+  if (!key) return;
+  tipTimer = setTimeout(() => {
+    bbTooltip.textContent = CARD_TIPS[key];
+    bbTooltip.classList.add('visible');
+  }, 900);
+});
+document.querySelector('.boards').addEventListener('mouseout', e => {
+  const card = e.target.closest('.card');
+  if (card && card.contains(e.relatedTarget)) return;
+  tipCard = null;
+  clearTimeout(tipTimer);
+  bbTooltip.classList.remove('visible');
+});
+document.querySelector('.boards').addEventListener('mousemove', e => {
+  bbTooltip.style.left = (e.clientX + 14) + 'px';
+  bbTooltip.style.top  = (e.clientY + 14) + 'px';
+});
 </script>
 </body>
 </html>
