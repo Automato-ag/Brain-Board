@@ -198,7 +198,13 @@ Brain-Board/
 │   ├── I2C_Address_Map.md
 │   └── ProductFamily.md
 ├── hardware/
-│   └── Brain_Board_Reference.md
+│   ├── README.md
+│   ├── Brain_Board_Reference.md
+│   └── kicad/
+│       └── Brain_Board_V2.0/
+│           ├── Automato_V2.0.kicad_sch
+│           ├── Automato_V2.0.kicad_pcb
+│           └── Automato_V2.0.kicad_pro
 └── tools/
     └── I2C_Scanner/
         └── I2C_Scanner.ino

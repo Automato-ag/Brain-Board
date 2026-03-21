@@ -6,6 +6,11 @@ All notable changes to Brain Board firmware are documented here.
 
 ## Host Firmware
 
+### v0.8.1 — Hardware
+- Added KiCad 9.0 design files for Brain Board V2.0 (schematic, PCB layout, project file)
+- Added `hardware/README.md` with key specs, I2C address table, and architecture note
+- Fixed TCA9534 I2C address in `Brain_Board_Reference.md` — corrected from 0x20 to 0x27
+
 ### v0.8.1 — 2026-03-20
 - Added `GET /i2c-scan` endpoint — scans I2C bus (SDA IO6, SCL IO7), returns JSON array of found addresses
 - Added tab navigation shell to dashboard webapp — fixed top bar with 5 tabs

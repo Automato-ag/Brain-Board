@@ -69,7 +69,7 @@ For relay control, connect a **SparkFun Qwiic GPIO (TCA9534)** to J2 or J3.
 
 | Property | Value |
 |---|---|
-| I2C address | 0x20 (all address pins LOW) |
+| I2C address | 0x27 (all address jumpers bridged — SparkFun Qwiic GPIO default) |
 | Library | SparkFun TCA9534 (Arduino Library Manager) |
 | Relay board | Amazon B0CHFJSNP6 (5V coil, optoisolated, active HIGH) |
 | Signal level | 3.3V from TCA9534 is sufficient to trigger optocoupler |
@@ -79,7 +79,7 @@ For relay control, connect a **SparkFun Qwiic GPIO (TCA9534)** to J2 or J3.
 
 ```
 Brain Board Qwiic (J2 or J3)
-  └── SparkFun Qwiic GPIO (TCA9534, 0x20)
+  └── SparkFun Qwiic GPIO (TCA9534, 0x27)
         └── Pin 0 → Relay Board IN
 ```
 
