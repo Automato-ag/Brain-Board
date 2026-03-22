@@ -1028,7 +1028,7 @@
   <!-- Setup mode banner — shown when not connected to a network -->
   <div class="setup-banner" id="setup-banner" style="display:none;">
     <span>📡 Your board is in setup mode — not connected to a network yet.</span>
-    <a href="/setup">Connect to WiFi →</a>
+    <a href="http://192.168.4.1/setup">Connect to WiFi →</a>
   </div>
 
   <div class="boards">
@@ -1574,11 +1574,15 @@ async function fetchData() {
 
 async function resetWifi() {
   if (!confirm('This will clear your WiFi credentials and reboot the board into setup mode. Continue?')) return;
-  try {
-    await fetch('/wifi/reset', { method: 'POST' });
-  } catch(e) {}
+  // Grab the AP SSID before the board reboots so we can show connection instructions
+  let apSSID = 'Automato-XXXX';
+  try { const v = await fetch('/version'); const vd = await v.json(); if (vd.apSSID) apSSID = vd.apSSID; } catch(e) {}
+  try { await fetch('/wifi/reset', { method: 'POST' }); } catch(e) {}
   setStatus('setup');
-  document.getElementById('wifi-status-label').textContent = 'Credentials cleared. Board is rebooting…';
+  document.getElementById('wifi-status-label').innerHTML =
+    'Credentials cleared. Board is rebooting into setup mode.<br>' +
+    '1. Connect your device to the <strong>' + apSSID + '</strong> WiFi network.<br>' +
+    '2. Open <a href="http://192.168.4.1/setup" style="color:var(--b1)">http://192.168.4.1/setup</a> to reconfigure.';
 }
 
 async function fetchVersion() {
@@ -1586,12 +1590,13 @@ async function fetchVersion() {
     const res  = await fetch('/version');
     const data = await res.json();
     const lbl  = document.getElementById('wifi-status-label');
+    const net = data.networkName ? 'Network: ' + data.networkName : '';
     if (data.wifiConnected) {
-      lbl.textContent = '📶 Connected · ' + data.mdns;
+      lbl.innerHTML = '📶 Connected · ' + data.mdns + (net ? '<br>' + net : '');
     } else if (data.hasCredentials) {
-      lbl.textContent = '⚠ Could not reach stored network.';
+      lbl.innerHTML = '⚠ Could not reach stored network.' + (net ? '<br>' + net : '');
     } else {
-      lbl.textContent = '📡 No network configured.';
+      lbl.innerHTML = '📡 No network configured.' + (net ? '<br>' + net : '');
       setStatus('setup');
     }
   } catch(e) {}

@@ -132,6 +132,8 @@ char     wifiPassword[64] = "";
 char     boardName[32]    = "";   // user-defined name (drives AP SSID + mDNS)
 char     apSSID[32]       = "";   // Automato-XXXX or custom name
 char     mdnsName[32]     = "";   // automato-XXXX or custom name
+char     networkName[33]  = "";   // Automato Network Name (mesh + cloud identity)
+char     networkPass[33]  = "";   // Automato Network password
 bool     wifiConnected    = false;
 bool     hasCredentials   = false;
 
@@ -2102,18 +2104,20 @@ void handleUpdateFilesystemDone() {
 // Returns firmware and webapp version as JSON
 // ─────────────────────────────────────────────
 void handleVersion() {
-  char json[256];
+  char json[320];
   snprintf(json, sizeof(json),
     "{\"firmware\":\"%s\",\"webapp\":\"%s\",\"lfs\":%s,"
     "\"wifiConnected\":%s,\"hasCredentials\":%s,"
-    "\"apSSID\":\"%s\",\"mdns\":\"%s.local\"}",
+    "\"apSSID\":\"%s\",\"mdns\":\"%s.local\","
+    "\"networkName\":\"%s\"}",
     FIRMWARE_VERSION,
     webappVersion,
     lfsOk          ? "true" : "false",
     wifiConnected  ? "true" : "false",
     hasCredentials ? "true" : "false",
     apSSID,
-    mdnsName
+    mdnsName,
+    networkName
   );
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "application/json", json);
@@ -2168,21 +2172,42 @@ void handleSetupGet() {
     " oninput=\"validateName(this)\">"
     "<div id='namewarn' style='color:#ffaa00;font-size:0.65rem;margin-top:6px;display:none;'>"
     "⚠ Use only letters, numbers, spaces and hyphens.</div>"
-    "<div class='note'>Board name sets your network address:<br>"
+    "<div class='note'>Board name sets your local network address:<br>"
     "e.g. \"Greenhouse North\" → greenhouse-north.local<br>"
-    "Leave blank to use the default: automato-XXXX.local<br><br>To reset WiFi credentials: hold the Boot button for 5&ndash;7 seconds while the board is starting up.</div>"
+    "Leave blank to use the default: automato-XXXX.local</div>"
+    "<hr style='border:none;border-top:1px solid #1a2030;margin:20px 0;'>"
+    "<label>Automato Network Name</label>"
+    "<input type='text' name='netname' id='nname' placeholder='e.g. automato-farm-1' maxlength='32'"
+    " oninput=\"validateNetName(this)\">"
+    "<div id='nnwarn' style='color:#ffaa00;font-size:0.65rem;margin-top:6px;display:none;'>"
+    "⚠ Use only letters, numbers and hyphens (no spaces).</div>"
+    "<label>Network Password <span style='color:#4a5568'>(recommended)</span></label>"
+    "<input type='password' name='netpass' id='npass' placeholder='Network password' maxlength='32'>"
+    "<div class='note'>Network Name groups your boards into a mesh and identifies them to automato.ag.<br>"
+    "All boards with the same Network Name will find each other automatically.<br>"
+    "Adding a password keeps your cloud identity private.<br><br>"
+    "To reset WiFi credentials: hold the Boot button for 5&ndash;7 seconds at startup.</div>"
     "<button type='button' onclick='submitForm()'>Save &amp; Connect</button>"
     "</form>"
     "<script>"
+    "fetch('/version').then(function(r){return r.json();}).then(function(d){"
+    "  if(d.networkName)document.getElementById('nname').value=d.networkName;"
+    "});"
     "function validateName(el){"
     "  var bad=/[^a-zA-Z0-9 \\-]/g;"
     "  var w=document.getElementById('namewarn');"
     "  w.style.display=bad.test(el.value)?'block':'none';"
     "}"
+    "function validateNetName(el){"
+    "  var bad=/[^a-zA-Z0-9\\-]/g;"
+    "  var w=document.getElementById('nnwarn');"
+    "  w.style.display=bad.test(el.value)?'block':'none';"
+    "}"
     "function submitForm(){"
     "  var n=document.getElementById('bname').value;"
-    "  var bad=/[^a-zA-Z0-9 \\-]/g;"
-    "  if(bad.test(n)){document.getElementById('namewarn').style.display='block';return;}"
+    "  var nn=document.getElementById('nname').value;"
+    "  if(/[^a-zA-Z0-9 \\-]/g.test(n)){document.getElementById('namewarn').style.display='block';return;}"
+    "  if(/[^a-zA-Z0-9\\-]/g.test(nn)){document.getElementById('nnwarn').style.display='block';return;}"
     "  document.querySelector('form').submit();"
     "}"
     "</script>"
@@ -2201,19 +2226,26 @@ void handleSetupPost() {
     return;
   }
 
-  String ssid  = server.arg("ssid");
-  String pass  = server.arg("pass");
-  String bname = server.arg("name");
+  String ssid    = server.arg("ssid");
+  String pass    = server.arg("pass");
+  String bname   = server.arg("name");
+  String netname = server.arg("netname");
+  String netpass = server.arg("netpass");
   bname.trim();
+  netname.trim();
 
   prefs.begin("automato", false);
-  prefs.putString("ssid", ssid);
-  prefs.putString("pass", pass);
-  prefs.putString("name", bname);
+  prefs.putString("ssid",    ssid);
+  prefs.putString("pass",    pass);
+  prefs.putString("name",    bname);
+  if (netname.length() > 0) prefs.putString("netname", netname);
+  prefs.putString("netpass", netpass);
   prefs.end();
 
-  Serial.printf("Credentials saved. SSID: %s  Name: %s\n",
-                ssid.c_str(), bname.length() > 0 ? bname.c_str() : "(default)");
+  Serial.printf("Credentials saved. SSID: %s  Name: %s  Network: %s\n",
+                ssid.c_str(),
+                bname.length()   > 0 ? bname.c_str()   : "(default)",
+                netname.length() > 0 ? netname.c_str() : "(unchanged)");
 
   String html = F(
     "<!DOCTYPE html><html><head>"
@@ -2362,14 +2394,17 @@ void setup() {
 
   // ── Load credentials and board name from NVS ──
   prefs.begin("automato", true);  // read-only
-  String ssid  = prefs.getString("ssid", "");
-  String pass  = prefs.getString("pass", "");
-  String bname = prefs.getString("name", "");
+  String ssid    = prefs.getString("ssid",     "");
+  String pass    = prefs.getString("pass",     "");
+  String bname   = prefs.getString("name",     "");
+  String netname = prefs.getString("netname",  "");
+  String netpass = prefs.getString("netpass",  "");
   prefs.end();
 
   ssid.toCharArray(wifiSSID,     sizeof(wifiSSID));
   pass.toCharArray(wifiPassword, sizeof(wifiPassword));
   bname.toCharArray(boardName,   sizeof(boardName));
+  netpass.toCharArray(networkPass, sizeof(networkPass));
   hasCredentials = (strlen(wifiSSID) > 0);
 
   // ── WiFi — AP+STA simultaneous ────────────
@@ -2381,6 +2416,16 @@ void setup() {
   String macSufx = mac.substring(12, 14) + mac.substring(15, 17);
   macSufx.toUpperCase();
   macSufx.replace(":", "");
+
+  // ── Automato Network Name — use stored value or auto-generate from MAC ──
+  if (netname.length() > 0) {
+    netname.toCharArray(networkName, sizeof(networkName));
+  } else {
+    String defaultNet = String("automato-") + macSufx;
+    defaultNet.toLowerCase();
+    defaultNet.toCharArray(networkName, sizeof(networkName));
+  }
+  Serial.printf("Network Name: %s\n", networkName);
 
   if (strlen(boardName) > 0) {
     // User has set a custom name — use it for both AP and mDNS
