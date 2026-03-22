@@ -1,6 +1,6 @@
 # Automato Brain Board — Product Roadmap
 
-Last updated: 2026-03-21
+Last updated: 2026-03-22
 
 This document captures the planned development path for the Automato Brain Board
 firmware, dashboard, and automato.ag platform integration. It is a living document
@@ -121,39 +121,45 @@ Base Firmware
 | Version | Scope | Status |
 |---------|-------|--------|
 | v0.8.1 | Tab nav shell, I2C Scanner tab, `/i2c-scan` endpoint | ✅ complete |
-| v0.9 | Devices tab + Automato Network Name in `/setup` | next |
-| v1.0 | Rules tab + Settings tab + plugin hooks + recipe database | target |
-| v1.1 | ESP-Mesh-Lite multi-board mesh | post-v1.0 |
+| v0.9 | Devices tab + remote I2C scan via ESP-NOW + Automato Network Name | ✅ complete |
+| v1.0 | Rules tab + Settings tab + plugin hooks + recipe database | next |
+| v1.1 | Auto-discovery + dynamic gateway + 1-hop relay | post-v1.0 |
+| v1.2 | Multi-hop relay + full peer equality + routing tables | post-v1.1 |
 
-### v0.9 Scope
+### v0.9 Scope — Complete
 
-**Devices tab:**
-- Reuses `/i2c-scan` + `/data` — no new firmware endpoints needed
-- Unknown device badge on any device not in the built-in or user database
-- User definition form: name, description, category, datasheet URL, hub flag
-- `/user_devices.json` stored in LittleFS — portable, designed for future mesh/cloud sync
+**Devices tab (replaces I2C Scanner tab):**
+- Host I2C scan via `/i2c-scan` endpoint
+- Remote board I2C scan via ESP-NOW (`MSG_SCAN_REQUEST` / `MSG_SCAN_RESPONSE`)
+- User device definition form — name and description stored in localStorage by address
+- Collapsible I2C address map (full 0x08–0x77 grid)
+- 4 tabs total: Dashboard · Devices · Rules · Settings
 
 **`/setup` additions:**
-- Automato Network Name field (auto-generated default, user-editable)
-- Password field (strongly suggested, not required)
-- Individual board name field remains unchanged (already in NVS)
+- Automato Network Name field — auto-generated default (`automato-XXXX`), user-editable
+- Password field — stored in NVS
+- Network Name exposed in `/version` JSON as `networkName`
+- Network Name displayed in Dashboard WiFi status area
+
+**WiFi reset UX:**
+- Reset flow shows step-by-step reconnection instructions with AP SSID and `http://192.168.4.1/setup` link
 
 ### v1.0 Scope
 
-- All five tabs functional (Dashboard, Devices, Rules, Settings)
-- Devices tab: remote board I2C topology via ESP-NOW scan request/response
+- All four tabs functional (Dashboard, Devices, Rules, Settings)
+- Rules tab: `/rules` GET/POST endpoints, NVS persistence, `evaluateRules()` active in loop
+- Settings tab: board name, Network Name, system settings (currently in `/setup` only)
 - Plugin hook architecture (see below)
 - Curated recipe database: 20–30 most common DIY sensors pre-defined in webapp
 - Stable REST API — no breaking changes after v1.0
 
 ### v1.0 Shippability Checklist
 
-- [ ] All five tabs functional
-- [ ] Devices tab: remote board I2C scan (ESP-NOW request → response → displayed in webapp)
+- [ ] All four tabs functional
+- [ ] Rules tab: full rule engine active, NVS persistence, `/rules` endpoints
+- [ ] Settings tab: board name, Network Name editable from Settings (not just `/setup`)
 - [ ] Plugin hook architecture implemented (`customSetup`, `customLoop`, `customDataJSON`)
 - [ ] Curated device recipe database in webapp (novice one-click apply)
-- [ ] `/setup` includes Automato Network Name + password fields
-- [ ] Hardware auto-detection on boot, results in `/data` JSON
 - [ ] Stable documented API — no breaking changes after v1.0
 - [ ] Pre-built `.bin` on GitHub — flash without Arduino IDE
 - [ ] OTA update flow verified end-to-end
@@ -325,39 +331,145 @@ makes this decision.
 
 ## Multi-Board Networking
 
-### Current Architecture (ESP-NOW Star Topology)
+### Design Principle: Boards Are Mobile
+
+Brain Boards follow plants, seasons, and growing conditions. A board monitoring
+germinating seedlings moves outside when transplanted. A board in a pot moves
+with the pot. A board is repositioned between garden beds each season.
+
+The architecture must accommodate this. Fixed Host/Remote roles require manual
+reconfiguration every time a board moves. That is unacceptable.
+
+**Every Brain Board is a full peer.** All boards run identical firmware with identical
+capabilities: web server, webapp, REST API, NVS rules, sensors, relay control.
+The "gateway" role (the board with active router connectivity that serves the
+network dashboard) is determined dynamically — not assigned by the user.
+
+### Current State (v0.9) — Fixed Roles, Manual Configuration
 
 ```
-Router <-> Host Board <-> Remote 1
-                     <-> Remote 2
+Router <─WiFi─> Board 1 (Host) <─ESP-NOW─> Board 2 (Remote)
+                               <─ESP-NOW─> Board 3 (Remote)
 ```
 
-All remote boards must be within ESP-NOW LR range of the host.
-Fixed roles: user designates board closest to router as Host.
+Boards within ESP-NOW range of Board 1 only. Fixed roles. Remote MAC addresses
+must be known in advance. Board 1 must remain closest to router.
 
-### Planned Architecture (ESP-Mesh-Lite) — target v1.1
+### v1.1 Target — Auto-Discovery + Dynamic Gateway + 1-Hop Relay
 
 ```
-Router <-> Board 1 <-> Board 2 <-> Board 3
-                              <-> Board 4
+Router <─WiFi─> Gateway <─ESP-NOW─> Board 2
+                        <─ESP-NOW─> Board 3
+                        <─ESP-NOW─> Board 4 (out of WiFi range, relayed)
 ```
 
-Any board only needs to reach its nearest neighbour. Self-forming and self-healing.
-Dynamic root election — board closest to router becomes root automatically.
-Boards identified by Automato Network Name — same name = same mesh.
+**Network Name beacon (MSG_HELLO):**
+Every board broadcasts a small beacon packet on startup and periodically:
+```cpp
+typedef struct {
+  uint8_t  type;            // MSG_HELLO
+  char     networkName[33]; // must match to join
+  char     boardName[33];   // individual board identity
+  uint8_t  mac[6];          // sender MAC
+  bool     hasWiFi;         // does this board have router connectivity?
+} HelloPayload;
+```
+Any board that receives a `MSG_HELLO` with a matching Network Name registers
+the sender as an ESP-NOW peer automatically. No manual MAC entry. No roles to assign.
 
-**Explicitly listed by Espressif as a smart agriculture target use case.**
+**Dynamic gateway election:**
+Whichever board has active WiFi router connectivity becomes the gateway.
+If multiple boards have WiFi, the one with the strongest RSSI wins.
+If the current gateway loses WiFi, another connected board takes over within
+one beacon cycle. No user action required.
 
-| Parameter | Value |
+**`networkname.local` mDNS:**
+The gateway advertises the Automato Network Name as an mDNS hostname
+(e.g., `southknox.local`). The user's browser bookmark works regardless of
+which physical board is the current gateway. mDNS TTL is short — re-resolves
+automatically within ~60 seconds of a gateway change.
+
+**Individual board access:**
+Every board on WiFi remains accessible at `boardname.local` independently.
+If a board moves out of mesh range but reconnects to WiFi, it is immediately
+reachable at its own address.
+
+**1-hop relay:**
+Boards out of WiFi range but within ESP-NOW range of the gateway (or another
+WiFi-connected board) relay their sensor data through that board. Commands
+from the dashboard relay back the same path.
+
+**Graceful degradation when a board moves:**
+
+| Board state | Behaviour |
 |---|---|
-| Maximum layers | 15 (5-6 recommended) |
-| Max connections per node | 10 hardware, 6 recommended |
-| Practical network size | 100–500 nodes |
-| Node-to-node distance | <100m stable, ~170m low throughput |
-| Self-forming / self-healing | Yes |
-| Arduino compatibility | To be verified before implementation |
+| On WiFi | Reachable at `boardname.local`, appears in network dashboard |
+| ESP-NOW range only (1 hop) | Data relayed through nearest peer, visible in dashboard |
+| Completely isolated | Tier 3 rules run independently; rejoins automatically when back in range |
 
-**Action required before v1.1:** Verify ESP-Mesh-Lite Arduino framework compatibility.
+### v1.2 Target — Multi-Hop Relay + Routing Tables
+
+```
+Router <─WiFi─> Board 1 <─ESP-NOW─> Board 2 <─ESP-NOW─> Board 4
+                        <─ESP-NOW─> Board 3 <─ESP-NOW─> Board 4 (after move)
+```
+
+Board 4 moves from Board 2's range to Board 3's range. The routing table
+updates within one beacon cycle. Board 4 remains visible in the dashboard
+throughout, briefly showing "reconnecting" during the transition.
+
+**Packet structure:**
+```cpp
+typedef struct {
+  uint8_t  type;
+  uint8_t  originMac[6]; // originating board — used for duplicate-drop
+  uint16_t seq;          // sequence number per originating board
+  uint8_t  ttl;          // decrements each hop; dropped at 0
+  uint8_t  payload[];
+} MeshPacket;
+```
+
+**Duplicate-drop:** A board that has already forwarded a given `originMac + seq`
+combination drops it immediately. Prevents routing loops.
+
+**TTL guard:** Packets dropped after N hops regardless. Default TTL = 5
+(supports a chain of 5 boards — more than any realistic Automato installation).
+
+**Bidirectional relay:** Sensor data flows toward the gateway. Commands
+(relay toggle, settings change) flow from the gateway back to the target board
+via the same routing path in reverse.
+
+**Routing table updates:** When a board's beacon is received by a new neighbor,
+that neighbor propagates a routing update toward the gateway. All intermediate
+boards update their tables. Convergence time: 1–3 beacon cycles.
+
+### Network Scale Limits
+
+| Parameter | Value | Notes |
+|---|---|---|
+| Max ESP-NOW peers per board | 20 | Hard limit in ESP-NOW stack |
+| Max boards in direct star | 21 | 1 gateway + 20 direct peers |
+| Max boards with 1 relay tier | ~50–80 | Practical limit with routing overhead |
+| Max boards with 2 relay tiers | ~150–200 | Well beyond any realistic installation |
+| Max hops | 5 (TTL default) | Configurable |
+| Transition time after board moves | 1–3 beacon cycles | Seconds to ~1 minute |
+
+For virtually all Automato installations (2–15 boards), no limit is approached.
+
+### Why Not ESP-Mesh-Lite or Other Mesh Libraries
+
+| Option | Verdict | Reason |
+|---|---|---|
+| ESP-Mesh-Lite | ❌ | ESP-IDF 5.x only — no Arduino framework support. Would require abandoning Arduino IDE, breaking the plugin hook architecture and webapp-only deploy workflow. |
+| painlessMesh | ❌ | Requires arduino-esp32 v2.0.x; ESP32-C6 requires v3.x. Mutually exclusive. |
+| zh_network | ❌ | ESP32-C6 unverified; tested on PlatformIO only, not Arduino IDE. |
+| Thread/OpenThread | ⏳ | Correct protocol for large IoT mesh; ESP32-C6 hardware supports it. Deferred — requires ESP-IDF, steep ramp-up, needs a Border Router. Revisit at v2.0. |
+| Custom ESP-NOW | ✅ | Arduino-native, fully verified on ESP32-C6, no external dependencies, no maintenance treadmill, right-sized for Automato's actual use case. |
+
+**The fundamental constraint:** any external mesh library introduces an update
+dependency. When the library or its underlying ESP-IDF changes, firmware must
+update or break. The most robust firmware owns everything it depends on.
+Custom ESP-NOW code, once written, is stable indefinitely.
 
 ---
 
@@ -381,6 +493,12 @@ Boards identified by Automato Network Name — same name = same mesh.
 | MicroSD slot on next Brain Board revision | IO18–IO21 are unconnected on V2.0; ~$0.40–$0.60 BOM; enables always-on local logging |
 | EX-01 is optional, not required | Only needed for >8 board types or >1 of same type per bus |
 | Third-party I2C devices are first-class | Automato is explicitly non-proprietary |
+| No external mesh library | External libraries introduce update dependencies — firmware must update when library or underlying IDF changes. Custom ESP-NOW code is stable indefinitely. |
+| Every board is a full peer | Boards move with plants and seasons. Fixed Host/Remote roles require manual reconfiguration on every move. Dynamic gateway election eliminates this friction. |
+| Dynamic gateway election | Whichever board has active WiFi router connectivity becomes the gateway. Changes automatically when boards move. User's bookmark (`networkname.local`) never breaks. |
+| `networkname.local` mDNS | Gateway advertises Network Name as mDNS hostname. User always reaches the network at the same address regardless of which physical board is currently the gateway. |
+| Multi-hop via custom relay (v1.2) | Boards may be out of WiFi range but within ESP-NOW range of another board. TTL + message-ID duplicate-drop prevents routing loops. Routing tables update within 1–3 beacon cycles when boards move. |
+| Board mobility is a first-class use case | Boards follow plants, pots, and seasons. Architecture must self-organize around this without requiring user reconfiguration. |
 
 ---
 
@@ -398,9 +516,10 @@ Boards identified by Automato Network Name — same name = same mesh.
 | v0.7 | OTA firmware update + LittleFS migration |
 | v0.8 | WiFi provisioning, captive portal, mDNS, channel scan |
 | v0.8.1 | Tab nav shell, I2C Scanner tab, `/i2c-scan` endpoint ✅ |
-| v0.9 | Devices tab + Automato Network Name in `/setup` |
-| v1.0 | All five tabs, plugin hooks, recipe database — stable, shippable |
-| v1.1 | ESP-Mesh-Lite multi-board mesh |
+| v0.9 | Devices tab, remote I2C scan via ESP-NOW, Automato Network Name | ✅ |
+| v1.0 | All four tabs, plugin hooks, recipe database — stable, shippable |
+| v1.1 | Auto-discovery, dynamic gateway, `networkname.local`, 1-hop relay |
+| v1.2 | Multi-hop relay, routing tables, full peer equality |
 
 ---
 
@@ -414,12 +533,14 @@ Full details in [`docs/ESP32C6_Capabilities.md`](ESP32C6_Capabilities.md).
 | LP (Low-Power) Co-Processor | Run Tier 3 rules while HP core sleeps — enables battery deployment | Future |
 | Wi-Fi 6 TWT | Scheduled radio wake windows — extends battery life on remote nodes | Future |
 | Bluetooth 5 LE | Phone-based provisioning, BLE sensor beacon, WiFi-down fallback | Planned |
-| Zigbee 3.0 / Thread 1.3 | Alternative mesh transport for large deployments | Under consideration |
+| Zigbee 3.0 / Thread 1.3 | Alternative mesh transport for large deployments (>50 boards, requires ESP-IDF) | Deferred to v2.0+ |
 | Die Temperature Sensor | MCU health diagnostic, zero additional hardware | Done (v0.8.1) |
 | Hardware Crypto Accelerators | Practical HTTPS to automato.ag, secure boot for production | Phase 1 |
 | Hardware PWM | Richer LED status, buzzer, motor/dimmer control | Future |
 | Hardware Pulse Counter (PCNT) | Flow meters, anemometers, rain gauges | Future |
 
 Note: LP core, TWT, and 802.15.4 require ESP-IDF, not the Arduino framework.
-Arduino is used now for development speed. ESP-IDF migration for specific
-features is a future consideration.
+Arduino is retained permanently for the plugin hook architecture (`custom.ino`),
+webapp-only deploy workflow, and DIY-first accessibility. ESP-IDF features that
+require abandoning Arduino are deferred until a migration path exists that
+preserves these properties.
