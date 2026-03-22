@@ -969,9 +969,12 @@
       <div class="dd-item" data-id="a-vpd"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Vapor Pressure Deficit</span><span class="dd-item-source">(Open-Meteo)</span></div>
 
       <div class="dd-group-lbl">Moon</div>
-      <div class="dd-item" data-id="m-phase"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Moon Phase</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
-      <div class="dd-item" data-id="m-moonrise" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Moonrise</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
-      <div class="dd-item" data-id="m-moonset"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Moonset</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
+      <div class="dd-item" data-id="m-phase"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Moon Phase</span><span class="dd-item-source">(USNO)</span></div>
+      <div class="dd-item" data-id="m-moonrise" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Moonrise</span><span class="dd-item-source">(USNO)</span></div>
+      <div class="dd-item" data-id="m-moonset"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Moonset</span><span class="dd-item-source">(USNO)</span></div>
+
+      <div class="dd-group-lbl">Weather Alerts</div>
+      <div class="dd-item" data-id="n-frost" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Frost / Freeze Alert</span><span class="dd-item-source">(NOAA NWS)</span></div>
 
       <div class="dd-group-lbl">Air Quality</div>
       <div class="dd-item" data-id="q-pm25"   onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">PM2.5 Particulates</span><span class="dd-item-source">(Open-Meteo AQI)</span></div>
@@ -1264,12 +1267,23 @@ function windDirLabel(deg) {
   const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
   return dirs[Math.round(deg / 22.5) % 16];
 }
-function moonPhaseLabel(illum) {
-  if (illum === undefined) return '—';
-  const p = parseFloat(illum);
-  if (p < 2) return '🌑 New Moon'; if (p < 35) return '🌒 Waxing Crescent';
-  if (p < 65) return '🌓 First Quarter'; if (p < 98) return '🌔 Waxing Gibbous';
-  return '🌕 Full Moon';
+function moonPhaseLabel(ageDays) {
+  if (ageDays === undefined) return '—';
+  const a = parseFloat(ageDays);
+  if (a <  1.85) return 'New Moon';
+  if (a <  7.38) return 'Waxing Crescent';
+  if (a <  8.88) return 'First Quarter';
+  if (a < 14.77) return 'Waxing Gibbous';
+  if (a < 16.27) return 'Full Moon';
+  if (a < 22.15) return 'Waning Gibbous';
+  if (a < 23.65) return 'Last Quarter';
+  return 'Waning Crescent';
+}
+function calcMoonAgeDays() {
+  const knownNewMoon = new Date('2000-01-06T18:14:00Z').getTime();
+  const synodicMs    = 29.53058867 * 24 * 60 * 60 * 1000;
+  const age = ((Date.now() - knownNewMoon) % synodicMs + synodicMs) % synodicMs;
+  return age / (24 * 60 * 60 * 1000);
 }
 
 // ═══════════════════════════════════════════════
@@ -1317,11 +1331,15 @@ async function refreshExternalData() {
   lastAgriRefresh = Date.now();
   const ids = Object.keys(activeParams);
   const needsWeather = ids.some(id => id.startsWith('w-') || id.startsWith('a-') || id === 's-uv' || id === 's-rad');
-  const needsSolar   = ids.some(id => id.startsWith('s-') || id.startsWith('m-'));
+  const needsSolar   = ids.some(id => id.startsWith('s-'));
+  const needsMoon    = ids.some(id => id.startsWith('m-'));
   const needsAQI     = ids.some(id => id.startsWith('q-'));
+  const needsFrost   = ids.some(id => id.startsWith('n-'));
   if (needsWeather) await fetchWeather();
   if (needsSolar)   await fetchSolar();
+  if (needsMoon)    await fetchMoon();
   if (needsAQI)     await fetchAQI();
+  if (needsFrost)   await fetchFrost();
   renderChips();
 }
 
@@ -1360,19 +1378,51 @@ async function fetchSolar() {
     externalData['s-sunset']     = { val_m: formatTime(r.sunset),               val_i: formatTime(r.sunset),               unit_m:'', unit_i:'' };
     externalData['s-lastlight']  = { val_m: formatTime(r.civil_twilight_end),   val_i: formatTime(r.civil_twilight_end),   unit_m:'', unit_i:'' };
     externalData['s-daylen']     = { val_m: dlStr, val_i: dlStr, unit_m:'', unit_i:'' };
-    externalData['m-moonrise']   = { val_m: formatTime(r.moonrise), val_i: formatTime(r.moonrise), unit_m:'', unit_i:'' };
-    externalData['m-moonset']    = { val_m: formatTime(r.moonset),  val_i: formatTime(r.moonset),  unit_m:'', unit_i:'' };
-    externalData['m-phase']      = { val_m: moonPhaseLabel(r.moon_illumination_percent), val_i: moonPhaseLabel(r.moon_illumination_percent), unit_m:'', unit_i:'' };
   } catch(e) { console.warn('Solar fetch failed:', e); }
+}
+
+async function fetchMoon() {
+  try {
+    const now  = new Date();
+    const date = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+    const tz   = -(now.getTimezoneOffset() / 60);
+    const res  = await fetch(`https://aa.usno.navy.mil/api/rstt/oneday?date=${date}&coords=${coords.lat},${coords.lon}&tz=${tz}`);
+    const data = await res.json();
+    const d    = data.properties.data;
+    const rise = (d.moondata.find(e => e.phen === 'Rise') || {}).time || '—';
+    const set  = (d.moondata.find(e => e.phen === 'Set')  || {}).time || '—';
+    externalData['m-moonrise'] = { val_m: rise,      val_i: rise,      unit_m:'', unit_i:'' };
+    externalData['m-moonset']  = { val_m: set,       val_i: set,       unit_m:'', unit_i:'' };
+    externalData['m-phase']    = { val_m: d.curphase, val_i: d.curphase, unit_m:'', unit_i:'' };
+  } catch(e) {
+    const phase = moonPhaseLabel(calcMoonAgeDays());
+    externalData['m-moonrise'] = { val_m: '—',   val_i: '—',   unit_m:'', unit_i:'' };
+    externalData['m-moonset']  = { val_m: '—',   val_i: '—',   unit_m:'', unit_i:'' };
+    externalData['m-phase']    = { val_m: phase, val_i: phase, unit_m:'', unit_i:'' };
+    console.warn('USNO moon fetch failed:', e);
+  }
+}
+
+async function fetchFrost() {
+  try {
+    const res  = await fetch(`https://api.weather.gov/alerts/active?point=${coords.lat},${coords.lon}`);
+    const data = await res.json();
+    const frostTypes = ['Frost Advisory','Freeze Warning','Hard Freeze Warning','Freeze Watch','Hard Freeze Watch','Frost Watch'];
+    const alert = data.features.find(f => frostTypes.includes(f.properties.event));
+    const label = alert ? alert.properties.event : 'None';
+    externalData['n-frost'] = { val_m: label, val_i: label, unit_m:'', unit_i:'' };
+  } catch(e) { console.warn('NWS frost fetch failed:', e); }
 }
 
 async function fetchAQI() {
   try {
-    const res  = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${coords.lat}&longitude=${coords.lon}&current=pm2_5,pollen_unified&timezone=auto`);
+    const res  = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${coords.lat}&longitude=${coords.lon}&current=pm2_5,grass_pollen,birch_pollen,ragweed_pollen&timezone=auto`);
     const data = await res.json();
     const c    = data.current;
     const pollenLabels = ['Low','Moderate','High','Very High'];
-    const pollenLabel  = c.pollen_unified!=null ? (pollenLabels[Math.min(Math.round(c.pollen_unified),3)]||'—') : '—';
+    const pollenPeak   = [c.grass_pollen, c.birch_pollen, c.ragweed_pollen].reduce((a,b) => (b!=null&&b>a?b:a), 0);
+    const pollenHasData = [c.grass_pollen, c.birch_pollen, c.ragweed_pollen].some(v => v!=null);
+    const pollenLabel  = pollenHasData ? (pollenLabels[Math.min(Math.round(pollenPeak/10),3)]||'—') : '—';
     externalData['q-pm25']   = { val_m: fmt1(c.pm2_5), val_i: fmt1(c.pm2_5), unit_m:'μg/m³', unit_i:'μg/m³' };
     externalData['q-pollen'] = { val_m: pollenLabel,   val_i: pollenLabel,   unit_m:'', unit_i:'' };
   } catch(e) { console.warn('AQI fetch failed:', e); }
