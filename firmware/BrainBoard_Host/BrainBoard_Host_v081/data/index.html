@@ -1233,7 +1233,7 @@ function setUnits(u) {
 // ═══════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════
-function fmt1(n)   { return isFinite(n) ? n.toFixed(1) : '—'; }
+function fmt1(n)   { return (n != null && isFinite(n)) ? n.toFixed(1) : '—'; }
 function fmtInt(n) { return isFinite(n) ? Math.round(n).toString() : '—'; }
 function humidFeel(h) {
   if (h < 25) return 'Very dry'; if (h < 40) return 'Dry';
@@ -1327,7 +1327,7 @@ async function refreshExternalData() {
 
 async function fetchWeather() {
   try {
-    const params = ['temperature_2m','precipitation','wind_speed_10m','wind_direction_10m','cloud_cover','relative_humidity_2m','uv_index','shortwave_radiation','soil_temperature_0_to_7cm','soil_temperature_7_to_28cm','soil_moisture_0_to_7cm','et0_fao_evapotranspiration','vapour_pressure_deficit'].join(',');
+    const params = ['temperature_2m','precipitation','wind_speed_10m','wind_direction_10m','cloud_cover','relative_humidity_2m','uv_index','shortwave_radiation','soil_temperature_0cm','soil_temperature_6cm','soil_moisture_0_to_1cm','et0_fao_evapotranspiration','vapour_pressure_deficit'].join(',');
     const res  = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=${params}&timezone=auto`);
     const data = await res.json();
     const c    = data.current;
@@ -1339,9 +1339,9 @@ async function fetchWeather() {
     externalData['w-humid']   = { val_m: fmtInt(c.relative_humidity_2m),  val_i: fmtInt(c.relative_humidity_2m),   unit_m:'%', unit_i:'%' };
     externalData['s-uv']      = { val_m: fmt1(c.uv_index),                val_i: fmt1(c.uv_index),                 unit_m:'', unit_i:'' };
     externalData['s-rad']     = { val_m: fmtInt(c.shortwave_radiation),   val_i: fmtInt(c.shortwave_radiation),    unit_m:'W/m²', unit_i:'W/m²' };
-    externalData['a-soil0']   = { val_m: fmt1(c.soil_temperature_0_to_7cm),  val_i: fmt1(c.soil_temperature_0_to_7cm*9/5+32),  unit_m:'°C', unit_i:'°F' };
-    externalData['a-soil1']   = { val_m: fmt1(c.soil_temperature_7_to_28cm), val_i: fmt1(c.soil_temperature_7_to_28cm*9/5+32), unit_m:'°C', unit_i:'°F' };
-    externalData['a-soilm']   = { val_m: c.soil_moisture_0_to_7cm!=null?c.soil_moisture_0_to_7cm.toFixed(3):'—', val_i: c.soil_moisture_0_to_7cm!=null?c.soil_moisture_0_to_7cm.toFixed(3):'—', unit_m:'m³/m³', unit_i:'m³/m³' };
+    externalData['a-soil0']   = { val_m: fmt1(c.soil_temperature_0cm),  val_i: fmt1(c.soil_temperature_0cm*9/5+32),  unit_m:'°C', unit_i:'°F' };
+    externalData['a-soil1']   = { val_m: fmt1(c.soil_temperature_6cm),  val_i: fmt1(c.soil_temperature_6cm*9/5+32),  unit_m:'°C', unit_i:'°F' };
+    externalData['a-soilm']   = { val_m: c.soil_moisture_0_to_1cm!=null?c.soil_moisture_0_to_1cm.toFixed(3):'—', val_i: c.soil_moisture_0_to_1cm!=null?c.soil_moisture_0_to_1cm.toFixed(3):'—', unit_m:'m³/m³', unit_i:'m³/m³' };
     externalData['a-et']      = { val_m: fmt1(c.et0_fao_evapotranspiration), val_i: fmt1(c.et0_fao_evapotranspiration/25.4), unit_m:'mm', unit_i:'in' };
     externalData['a-vpd']     = { val_m: fmt1(c.vapour_pressure_deficit),    val_i: fmt1(c.vapour_pressure_deficit),          unit_m:'kPa', unit_i:'kPa' };
   } catch(e) { console.warn('Weather fetch failed:', e); }
