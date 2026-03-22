@@ -87,6 +87,21 @@ typedef struct {
 } PingPayload;
 
 // ─────────────────────────────────────────────
+// Remote I2C scan — request/response packets
+// Must match Host firmware exactly
+// ─────────────────────────────────────────────
+#define MSG_SCAN_REQUEST  0x01
+#define MSG_SCAN_RESPONSE 0x02
+
+typedef struct { uint8_t type; } ScanRequestPayload;
+
+typedef struct {
+  uint8_t type;       // MSG_SCAN_RESPONSE
+  uint8_t count;      // number of addresses found (0–32)
+  uint8_t addrs[32];  // decimal I2C addresses
+} ScanResponsePayload;
+
+// ─────────────────────────────────────────────
 // Hardware
 // ─────────────────────────────────────────────
 Adafruit_SHTC3   shtc3;
@@ -192,6 +207,26 @@ void readSensors() {
 }
 
 // ─────────────────────────────────────────────
+// ESP-NOW receive callback — handles commands from Host
+// ─────────────────────────────────────────────
+void onCommandReceived(const esp_now_recv_info_t* info, const uint8_t* data, int len) {
+  if (len == sizeof(ScanRequestPayload) && data[0] == MSG_SCAN_REQUEST) {
+    Serial.println("I2C scan requested by Host — scanning...");
+    ScanResponsePayload resp = {};
+    resp.type  = MSG_SCAN_RESPONSE;
+    resp.count = 0;
+    for (uint8_t addr = 0x08; addr <= 0x77; addr++) {
+      Wire.beginTransmission(addr);
+      if (Wire.endTransmission() == 0) {
+        if (resp.count < 32) resp.addrs[resp.count++] = addr;
+      }
+    }
+    Serial.printf("Remote scan complete: %d device(s) found.\n", resp.count);
+    esp_now_send(HOST_MAC_ADDRESS, (uint8_t*)&resp, sizeof(resp));
+  }
+}
+
+// ─────────────────────────────────────────────
 // Setup
 // ─────────────────────────────────────────────
 void setup() {
@@ -244,6 +279,7 @@ void setup() {
     }
   }
   esp_now_register_send_cb(onDataSent);
+  esp_now_register_recv_cb(onCommandReceived);
 
   // Register peer on ch 1 initially — scanForHost() will update it
   setPeerChannel(1);

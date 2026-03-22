@@ -157,6 +157,24 @@ typedef struct {
 } SensorPayload;
 
 // ─────────────────────────────────────────────
+// Remote I2C scan — request/response packets
+// Discriminated by packet length in onDataReceived:
+//   SensorPayload      = 28 bytes (existing)
+//   ScanResponsePayload = 34 bytes (new)
+//   ScanRequestPayload  =  1 byte  (sent TO remote)
+// ─────────────────────────────────────────────
+#define MSG_SCAN_REQUEST  0x01
+#define MSG_SCAN_RESPONSE 0x02
+
+typedef struct { uint8_t type; } ScanRequestPayload;
+
+typedef struct {
+  uint8_t type;       // MSG_SCAN_RESPONSE
+  uint8_t count;      // number of addresses found (0–32)
+  uint8_t addrs[32];  // decimal I2C addresses
+} ScanResponsePayload;
+
+// ─────────────────────────────────────────────
 // Hardware objects
 // ─────────────────────────────────────────────
 Adafruit_SHTC3   shtc3;
@@ -186,6 +204,15 @@ bool          b2_everReceived  = false;
 unsigned long b2_lastReceived  = 0;
 char          b2_macStr[18]    = "—";
 #define B2_STALE_MS 15000
+
+// Remote board MAC (captured from first ESP-NOW packet, used to send scan requests)
+uint8_t b2_mac[6]        = {};
+bool    b2_macKnown      = false;
+
+// Remote board I2C scan results
+uint8_t b2_scanAddrs[32] = {};
+uint8_t b2_scanCount     = 0;
+bool    b2_scanReady     = false;
 
 // ─────────────────────────────────────────────
 // Relay state
@@ -345,21 +372,41 @@ void evaluateRules() {
 // ESP-NOW receive callback
 // ─────────────────────────────────────────────
 void onDataReceived(const esp_now_recv_info_t* info, const uint8_t* data, int len) {
-  if (len != sizeof(SensorPayload)) return;
+  // Capture Remote MAC and register it as a peer the first time we hear from it
+  if (!b2_macKnown) {
+    memcpy(b2_mac, info->src_addr, 6);
+    b2_macKnown = true;
+    esp_now_peer_info_t peer = {};
+    memcpy(peer.peer_addr, b2_mac, 6);
+    peer.channel = 0;
+    peer.encrypt = false;
+    esp_now_add_peer(&peer);
+    Serial.printf("Remote peer registered: %02X:%02X:%02X:%02X:%02X:%02X\n",
+                  b2_mac[0], b2_mac[1], b2_mac[2],
+                  b2_mac[3], b2_mac[4], b2_mac[5]);
+  }
 
-  memcpy(&b2_data, data, sizeof(SensorPayload));
-  b2_everReceived = true;
-  b2_lastReceived = millis();
+  if (len == sizeof(SensorPayload)) {
+    memcpy(&b2_data, data, sizeof(SensorPayload));
+    b2_everReceived = true;
+    b2_lastReceived = millis();
+    snprintf(b2_macStr, sizeof(b2_macStr),
+             "%02X:%02X:%02X:%02X:%02X:%02X",
+             info->src_addr[0], info->src_addr[1], info->src_addr[2],
+             info->src_addr[3], info->src_addr[4], info->src_addr[5]);
+    digitalWrite(PIN_LED_B, LOW); delay(60); digitalWrite(PIN_LED_B, HIGH);
+    Serial.printf("Board 2 → Temp: %.1f°C  Hum: %.1f%%  Lux: %.1f\n",
+                  b2_data.tempC, b2_data.humidity, b2_data.lux);
 
-  snprintf(b2_macStr, sizeof(b2_macStr),
-           "%02X:%02X:%02X:%02X:%02X:%02X",
-           info->src_addr[0], info->src_addr[1], info->src_addr[2],
-           info->src_addr[3], info->src_addr[4], info->src_addr[5]);
-
-  digitalWrite(PIN_LED_B, LOW); delay(60); digitalWrite(PIN_LED_B, HIGH);
-
-  Serial.printf("Board 2 → Temp: %.1f°C  Hum: %.1f%%  Lux: %.1f\n",
-                b2_data.tempC, b2_data.humidity, b2_data.lux);
+  } else if (len == sizeof(ScanResponsePayload)) {
+    const ScanResponsePayload* resp = (const ScanResponsePayload*)data;
+    if (resp->type == MSG_SCAN_RESPONSE) {
+      b2_scanCount = min((int)resp->count, 32);
+      memcpy(b2_scanAddrs, resp->addrs, b2_scanCount);
+      b2_scanReady = true;
+      Serial.printf("Remote scan response: %d device(s)\n", b2_scanCount);
+    }
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -445,6 +492,42 @@ void handleData() {
   );
 
   server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(200, "application/json", json);
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /remote-scan
+//   POST → send I2C scan request to Remote via ESP-NOW
+//   GET  → return last scan results (ready:true/false)
+// ─────────────────────────────────────────────
+void handleRemoteScan() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+
+  if (server.method() == HTTP_POST) {
+    if (!b2_macKnown) {
+      server.send(200, "application/json",
+        "{\"ok\":false,\"error\":\"No remote board linked\"}");
+      return;
+    }
+    b2_scanReady = false;
+    ScanRequestPayload req = {MSG_SCAN_REQUEST};
+    esp_now_send(b2_mac, (uint8_t*)&req, sizeof(req));
+    server.send(200, "application/json", "{\"ok\":true}");
+    Serial.println("Remote I2C scan requested.");
+    return;
+  }
+
+  // GET
+  if (!b2_scanReady) {
+    server.send(200, "application/json", "{\"ready\":false}");
+    return;
+  }
+  String json = "{\"ready\":true,\"devices\":[";
+  for (int i = 0; i < b2_scanCount; i++) {
+    if (i > 0) json += ",";
+    json += b2_scanAddrs[i];
+  }
+  json += "]}";
   server.send(200, "application/json", json);
 }
 
@@ -2385,6 +2468,7 @@ void setup() {
   server.on("/relay",                     handleRelay);
   server.on("/relay/status",              handleRelayStatus);
   server.on("/i2c-scan",                  handleI2CScan);
+  server.on("/remote-scan",               handleRemoteScan);
   server.on("/setup",          HTTP_GET,  handleSetupGet);
   server.on("/setup",          HTTP_POST, handleSetupPost);
   server.on("/wifi/reset",     HTTP_POST, handleWifiReset);

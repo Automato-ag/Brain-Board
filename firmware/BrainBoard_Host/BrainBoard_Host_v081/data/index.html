@@ -573,63 +573,11 @@
   .tab-panel { display: none; width: 100%; }
   .tab-panel.active { display: flex; }
   #panel-dashboard { flex-direction: row; }
-  #panel-i2c,
   #panel-devices,
   #panel-rules,
   #panel-settings { flex-direction: column; padding: 32px 28px 48px; flex: 1; }
 
-  /* ── I2C SCANNER ── */
-  .i2c-header { margin-bottom: 28px; }
-  .i2c-header h2 {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 1.5rem;
-    letter-spacing: -0.02em;
-    color: var(--text);
-    margin-bottom: 6px;
-  }
-  .i2c-header p {
-    font-size: 0.62rem;
-    color: var(--muted);
-    letter-spacing: 0.05em;
-    line-height: 1.7;
-  }
-  .i2c-scan-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-  }
-  .i2c-scan-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
-    background: rgba(0,229,255,0.08);
-    border: 1px solid rgba(0,229,255,0.3);
-    border-radius: 8px;
-    font-family: 'Space Mono', monospace;
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--b1);
-    cursor: pointer;
-    transition: all 0.18s;
-  }
-  .i2c-scan-btn:hover { background: rgba(0,229,255,0.15); border-color: rgba(0,229,255,0.5); }
-  .i2c-scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .i2c-scan-btn .scan-spinner {
-    display: none;
-    width: 10px; height: 10px;
-    border: 1.5px solid rgba(0,229,255,0.3);
-    border-top-color: var(--b1);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-  }
-  .i2c-scan-btn.scanning .scan-spinner { display: block; }
-  .i2c-scan-btn.scanning .scan-icon { display: none; }
+  /* ── I2C SHARED STYLES ── */
   .i2c-scan-status {
     font-size: 0.6rem;
     color: var(--muted);
@@ -699,14 +647,15 @@
     letter-spacing: 0.05em;
     line-height: 2.4;
   }
-  .i2c-addr-grid-title {
-    font-size: 0.58rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-    margin-bottom: 10px;
-    margin-top: 4px;
+  .dev-bus-details { margin-top: 8px; }
+  .dev-bus-summary {
+    font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); cursor: pointer; list-style: none;
+    user-select: none; margin-bottom: 0; padding: 4px 0;
   }
+  .dev-bus-summary:hover { color: var(--text); }
+  .dev-bus-summary::-webkit-details-marker { display: none; }
+  .dev-bus-details[open] .dev-bus-summary { margin-bottom: 10px; }
   .i2c-addr-grid {
     display: flex;
     flex-wrap: wrap;
@@ -733,6 +682,70 @@
     color: var(--ok);
     border-color: rgba(45,223,130,0.35);
     background: rgba(45,223,130,0.06);
+  }
+
+  /* ── DEVICES TAB ── */
+  .dev-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .dev-scan-btn {
+    font-family: 'Space Mono', monospace; font-size: 0.65rem; font-weight: 700;
+    letter-spacing: 0.05em; padding: 8px 18px;
+    background: transparent; color: var(--b1);
+    border: 1px solid rgba(0,229,255,0.35); border-radius: 6px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .dev-scan-btn:hover { background: rgba(0,229,255,0.08); }
+  .dev-scan-btn:disabled { opacity: 0.4; cursor: default; }
+  .dev-board-section { margin-bottom: 32px; }
+  .dev-board-label {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 0.72rem;
+    color: var(--text); display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  .dev-role-badge {
+    font-size: 0.5rem; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 100px; border: 1px solid;
+  }
+  .dev-role-badge.host   { color: var(--ok);    border-color: rgba(45,223,130,0.3); background: rgba(45,223,130,0.07); }
+  .dev-role-badge.remote { color: var(--muted); border-color: var(--border); }
+  .i2c-tag.user-tag { color: var(--b2); border-color: rgba(255,159,67,0.3); background: rgba(255,159,67,0.06); }
+  .dev-define-toggle {
+    display: inline-block; margin-top: 8px; font-size: 0.5rem;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted); cursor: pointer; text-decoration: underline;
+    background: none; border: none; padding: 0;
+  }
+  .dev-define-toggle:hover { color: var(--text); }
+  .dev-define-form { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .dev-define-form.open { display: block; }
+  .dev-define-form label { display: block; font-size: 0.5rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; margin-top: 8px; }
+  .dev-define-form label:first-child { margin-top: 0; }
+  .dev-define-form input {
+    width: 100%; box-sizing: border-box; padding: 6px 8px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.6rem; outline: none;
+  }
+  .dev-define-form input:focus { border-color: rgba(0,229,255,0.4); }
+  .dev-define-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .dev-define-save {
+    font-family: 'Space Mono', monospace; font-size: 0.55rem; font-weight: 700;
+    padding: 5px 14px; background: var(--b1); color: #000; border: none; border-radius: 4px; cursor: pointer;
+  }
+  .dev-define-save:hover { background: #33eeff; }
+  .dev-define-cancel {
+    font-family: 'Space Mono', monospace; font-size: 0.55rem;
+    padding: 5px 10px; background: none; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
+  }
+  .dev-user-actions { margin-top: 6px; display: flex; gap: 8px; }
+  .dev-user-link {
+    font-size: 0.5rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted); background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline;
+  }
+  .dev-user-link:hover { color: var(--text); }
+  .dev-remote-note {
+    padding: 16px 20px; border: 1px solid var(--border); border-radius: 10px;
+    font-size: 0.6rem; color: var(--muted); letter-spacing: 0.03em;
+    background: var(--surface); line-height: 1.8;
   }
 
   /* ── PLACEHOLDER TABS ── */
@@ -849,9 +862,6 @@
   </div>
   <button class="tab-btn active" onclick="switchTab('dashboard')" id="tab-dashboard">
     <span class="tab-icon">⬡</span> Dashboard
-  </button>
-  <button class="tab-btn" onclick="switchTab('i2c')" id="tab-i2c">
-    <span class="tab-icon">⌬</span> I2C Scanner
   </button>
   <button class="tab-btn" onclick="switchTab('devices')" id="tab-devices">
     <span class="tab-icon">◈</span> Devices
@@ -1100,40 +1110,15 @@
 </div><!-- #panel-dashboard -->
 
 <!-- ══════════════════════════════════════════ -->
-<!-- I2C SCANNER TAB                            -->
-<!-- ══════════════════════════════════════════ -->
-<div class="tab-panel" id="panel-i2c">
-  <div class="i2c-header">
-    <h2>I2C Scanner</h2>
-    <p>Scans the I2C bus (SDA IO6 · SCL IO7) for connected devices. Press Scan to start — results appear below with device identification from a 125+ device database.</p>
-  </div>
-
-  <div class="i2c-scan-row">
-    <button class="i2c-scan-btn" id="i2c-scan-btn" onclick="runI2CScan()">
-      <span class="scan-icon">⌬</span>
-      <div class="scan-spinner"></div>
-      Scan I2C Bus
-    </button>
-    <span class="i2c-scan-status" id="i2c-scan-status">Press scan to detect devices.</span>
-  </div>
-
-  <div class="i2c-addr-grid-title" id="i2c-grid-title" style="display:none;">Address map (0x08 – 0x77)</div>
-  <div class="i2c-addr-grid" id="i2c-addr-grid"></div>
-
-  <div class="i2c-results" id="i2c-results">
-    <div class="i2c-empty">No scan results yet.<br>Press <strong>Scan I2C Bus</strong> to detect connected devices.</div>
-  </div>
-</div><!-- #panel-i2c -->
-
-<!-- ══════════════════════════════════════════ -->
 <!-- DEVICES TAB                                -->
 <!-- ══════════════════════════════════════════ -->
 <div class="tab-panel" id="panel-devices">
-  <div class="placeholder-tab">
-    <div class="ph-icon">◈</div>
-    <h3>Devices</h3>
-    <p>Board topology and attached hardware.<br>Shows all connected Automato boards and their detected peripherals.<br>Requires firmware v0.9+</p>
+  <div class="dev-toolbar">
+    <button class="dev-scan-btn" id="dev-scan-btn" onclick="runDeviceScan()">⟳ Scan Devices</button>
+    <span id="dev-scan-status" class="i2c-scan-status"></span>
   </div>
+  <div id="dev-host-section"></div>
+  <div id="dev-remote-section"></div>
 </div>
 
 <!-- ══════════════════════════════════════════ -->
@@ -1624,6 +1609,7 @@ function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'devices' && !devScanDone) runDeviceScan();
 }
 
 // ═══════════════════════════════════════════════
@@ -1747,99 +1733,236 @@ const I2C_DB = {
 const ONBOARD_ADDRS = new Set([0x29, 0x70]);
 
 // ═══════════════════════════════════════════════
-// I2C SCANNER
+// DEVICES TAB
 // ═══════════════════════════════════════════════
-async function runI2CScan() {
-  const btn    = document.getElementById('i2c-scan-btn');
-  const status = document.getElementById('i2c-scan-status');
-  const results = document.getElementById('i2c-results');
-  const grid   = document.getElementById('i2c-addr-grid');
-  const gridTitle = document.getElementById('i2c-grid-title');
+let devScanDone = false;
+let userDevices = {};
+(function() {
+  try { userDevices = JSON.parse(localStorage.getItem('userDevices') || '{}'); } catch(e) { userDevices = {}; }
+})();
 
-  btn.classList.add('scanning');
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function runDeviceScan() {
+  const btn    = document.getElementById('dev-scan-btn');
+  const status = document.getElementById('dev-scan-status');
   btn.disabled = true;
   status.className = 'i2c-scan-status';
   status.textContent = 'Scanning…';
-  results.innerHTML = '';
 
   try {
-    const res  = await fetch('/i2c-scan');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    const devs = data.devices || [];
+    const [scanRes, verRes] = await Promise.all([fetch('/i2c-scan'), fetch('/version')]);
+    const scanData = await scanRes.json();
+    const verData  = await verRes.json();
+    const devs     = scanData.devices || [];
+    const mdns     = verData.mdns || 'brainboard.local';
 
-    btn.classList.remove('scanning');
-    btn.disabled = false;
+    devScanDone = true;
+    status.className = devs.length > 0 ? 'i2c-scan-status found' : 'i2c-scan-status';
+    status.textContent = devs.length > 0
+      ? `Found ${devs.length} device${devs.length !== 1 ? 's' : ''}.`
+      : 'No I2C devices found.';
 
-    if (devs.length === 0) {
-      status.textContent = 'Scan complete — no devices found.';
-      results.innerHTML = '<div class="i2c-empty">No I2C devices detected.<br>Check wiring: SDA IO6 · SCL IO7 · 3.3V · GND</div>';
-      gridTitle.style.display = 'none';
-      grid.innerHTML = '';
-      return;
-    }
-
-    const detected = new Set(devs);
-    status.className = 'i2c-scan-status found';
-    status.textContent = `Found ${devs.length} device${devs.length > 1 ? 's' : ''}.`;
-
-    // Address map grid
-    gridTitle.style.display = 'block';
-    grid.innerHTML = '';
-    for (let a = 0x08; a <= 0x77; a++) {
-      const chip = document.createElement('span');
-      chip.className = 'i2c-addr-chip';
-      chip.textContent = '0x' + a.toString(16).toUpperCase().padStart(2,'0');
-      if (detected.has(a)) {
-        chip.classList.add(ONBOARD_ADDRS.has(a) ? 'onboard-chip' : 'detected');
-        chip.title = I2C_DB[a] ? I2C_DB[a].name : 'Unknown device';
-      }
-      grid.appendChild(chip);
-    }
-
-    // Device cards — onboard first, then known, then unknown
-    const sorted = [...devs].sort((a, b) => {
-      const aBoard = ONBOARD_ADDRS.has(a);
-      const bBoard = ONBOARD_ADDRS.has(b);
-      const aKnown = !!I2C_DB[a];
-      const bKnown = !!I2C_DB[b];
-      if (aBoard && !bBoard) return -1;
-      if (!aBoard && bBoard) return 1;
-      if (aKnown && !bKnown) return -1;
-      if (!aKnown && bKnown) return 1;
-      return a - b;
-    });
-
-    results.innerHTML = sorted.map(addr => {
-      const info    = I2C_DB[addr];
-      const hex     = '0x' + addr.toString(16).toUpperCase().padStart(2,'0');
-      const dec     = addr;
-      const isBoard = ONBOARD_ADDRS.has(addr);
-      const isKnown = !!info;
-      const cls     = isBoard ? 'onboard' : (isKnown ? '' : 'unknown');
-      const tag     = isBoard
-        ? '<span class="i2c-tag onboard-tag">Automato onboard</span>'
-        : (isKnown ? '<span class="i2c-tag known-tag">Identified</span>' : '<span class="i2c-tag unknown-tag">Unknown</span>');
-      const name    = info ? info.name : 'Unknown device';
-      const desc    = info ? info.desc : 'Address not in database. May be a custom or unlisted device.';
-      return `<div class="i2c-device-card ${cls}">
-        <div class="i2c-addr">${hex} <span style="font-size:0.6em;opacity:0.5">· dec ${dec}</span></div>
-        <div class="i2c-name">${name}</div>
-        <div class="i2c-desc">${desc}</div>
-        ${tag}
-      </div>`;
-    }).join('');
-
+    renderDevicesHost(devs, mdns);
+    renderDevicesRemotePending();
+    triggerRemoteScan();
   } catch(e) {
-    btn.classList.remove('scanning');
-    btn.disabled = false;
     status.className = 'i2c-scan-status error';
     status.textContent = 'Scan failed: ' + e.message;
-    results.innerHTML = '<div class="i2c-empty">Could not reach board.<br>Make sure you are connected to the Brain Board network.</div>';
-    gridTitle.style.display = 'none';
-    grid.innerHTML = '';
+    devScanDone = false;
+  } finally {
+    btn.disabled = false;
   }
 }
+
+async function triggerRemoteScan() {
+  try {
+    const postRes  = await fetch('/remote-scan', { method: 'POST' });
+    const postData = await postRes.json();
+    if (!postData.ok) {
+      renderDevicesRemote(null, postData.error || 'No remote board linked.');
+      return;
+    }
+    // Poll for results — up to 10s
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      const getRes  = await fetch('/remote-scan');
+      const getData = await getRes.json();
+      if (getData.ready) {
+        renderDevicesRemote(getData.devices || []);
+        return;
+      }
+    }
+    renderDevicesRemote(null, 'Remote scan timed out — no response from Board 2.');
+  } catch(e) {
+    renderDevicesRemote(null, 'Remote scan failed: ' + e.message);
+  }
+}
+
+function buildDeviceCard(addr) {
+  const hex     = '0x' + addr.toString(16).toUpperCase().padStart(2, '0');
+  const isBoard = ONBOARD_ADDRS.has(addr);
+  const dbInfo  = I2C_DB[addr];
+  const userDef = userDevices[hex];
+
+  if (isBoard) {
+    return `<div class="i2c-device-card onboard">
+      <div class="i2c-addr">${hex} <span style="font-size:0.6em;opacity:0.5">· dec ${addr}</span></div>
+      <div class="i2c-name">${dbInfo.name}</div>
+      <div class="i2c-desc">${dbInfo.desc}</div>
+      <span class="i2c-tag onboard-tag">Automato onboard</span>
+    </div>`;
+  }
+
+  if (dbInfo) {
+    return `<div class="i2c-device-card">
+      <div class="i2c-addr">${hex} <span style="font-size:0.6em;opacity:0.5">· dec ${addr}</span></div>
+      <div class="i2c-name">${dbInfo.name}</div>
+      <div class="i2c-desc">${dbInfo.desc}</div>
+      <span class="i2c-tag known-tag">Identified</span>
+    </div>`;
+  }
+
+  if (userDef) {
+    return `<div class="i2c-device-card" id="dev-card-${addr}">
+      <div class="i2c-addr">${hex} <span style="font-size:0.6em;opacity:0.5">· dec ${addr}</span></div>
+      <div class="i2c-name">${escHtml(userDef.name)}</div>
+      <div class="i2c-desc">${escHtml(userDef.desc)}</div>
+      <span class="i2c-tag user-tag">User-defined</span>
+      <div class="dev-user-actions">
+        <button class="dev-user-link" onclick="showDefineForm(${addr})">Edit</button>
+        <button class="dev-user-link" onclick="deleteUserDevice(${addr})">Remove</button>
+      </div>
+      <div class="dev-define-form" id="dev-form-${addr}">
+        <label>Device name</label>
+        <input type="text" id="dev-name-${addr}" value="${escHtml(userDef.name)}" maxlength="40">
+        <label>Description</label>
+        <input type="text" id="dev-desc-${addr}" value="${escHtml(userDef.desc)}" maxlength="120">
+        <div class="dev-define-actions">
+          <button class="dev-define-save" onclick="saveUserDevice(${addr})">Save</button>
+          <button class="dev-define-cancel" onclick="hideDefineForm(${addr})">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Truly unknown, no user definition yet
+  return `<div class="i2c-device-card unknown" id="dev-card-${addr}">
+    <div class="i2c-addr">${hex} <span style="font-size:0.6em;opacity:0.5">· dec ${addr}</span></div>
+    <div class="i2c-name">Unknown device</div>
+    <div class="i2c-desc">Address not in database. Check your device's datasheet for its I2C address.</div>
+    <span class="i2c-tag unknown-tag">Unknown</span>
+    <button class="dev-define-toggle" onclick="showDefineForm(${addr})">Define this device ↓</button>
+    <div class="dev-define-form" id="dev-form-${addr}">
+      <label>Device name</label>
+      <input type="text" id="dev-name-${addr}" placeholder="e.g. BME280" maxlength="40">
+      <label>Description</label>
+      <input type="text" id="dev-desc-${addr}" placeholder="e.g. Temperature, humidity, and pressure sensor" maxlength="120">
+      <div class="dev-define-actions">
+        <button class="dev-define-save" onclick="saveUserDevice(${addr})">Save</button>
+        <button class="dev-define-cancel" onclick="hideDefineForm(${addr})">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderDevicesHost(devs, mdns) {
+  const sec      = document.getElementById('dev-host-section');
+  const detected = new Set(devs);
+
+  const sorted = [...devs].sort((a, b) => {
+    const aBoard = ONBOARD_ADDRS.has(a), bBoard = ONBOARD_ADDRS.has(b);
+    const aKnown = !!I2C_DB[a],         bKnown = !!I2C_DB[b];
+    if (aBoard && !bBoard) return -1; if (!aBoard && bBoard) return 1;
+    if (aKnown && !bKnown) return -1; if (!aKnown && bKnown) return 1;
+    return a - b;
+  });
+
+  const cards = sorted.length === 0
+    ? '<div class="i2c-empty">No I2C devices detected.<br>Check wiring: SDA IO6 · SCL IO7 · 3.3V · GND</div>'
+    : sorted.map(addr => buildDeviceCard(addr)).join('');
+
+  // Build address grid as HTML string
+  let gridHtml = '';
+  for (let a = 0x08; a <= 0x77; a++) {
+    const hex = '0x' + a.toString(16).toUpperCase().padStart(2, '0');
+    let cls = 'i2c-addr-chip';
+    let title = '';
+    if (detected.has(a)) {
+      cls += ONBOARD_ADDRS.has(a) ? ' onboard-chip' : ' detected';
+      title = ` title="${I2C_DB[a] ? escHtml(I2C_DB[a].name) : 'Unknown device'}"`;
+    }
+    gridHtml += `<span class="${cls}"${title}>${hex}</span>`;
+  }
+
+  const boardLabel = mdns.replace('.local', '');
+  sec.innerHTML = `<div class="dev-board-section">
+    <div class="dev-board-label">${escHtml(boardLabel)} <span class="dev-role-badge host">Host</span></div>
+    <div class="i2c-results">${cards}</div>
+    <details class="dev-bus-details">
+      <summary class="dev-bus-summary">▸ Address map (0x08 – 0x77)</summary>
+      <div class="i2c-addr-grid">${gridHtml}</div>
+    </details>
+  </div>`;
+}
+
+function renderDevicesRemotePending() {
+  const sec = document.getElementById('dev-remote-section');
+  sec.innerHTML = `<div class="dev-board-section">
+    <div class="dev-board-label">Board 2 <span class="dev-role-badge remote">Remote</span></div>
+    <div class="dev-remote-note">Scanning remote board…</div>
+  </div>`;
+}
+
+function renderDevicesRemote(devs, errorMsg) {
+  const sec = document.getElementById('dev-remote-section');
+  if (errorMsg) {
+    sec.innerHTML = `<div class="dev-board-section">
+      <div class="dev-board-label">Board 2 <span class="dev-role-badge remote">Remote</span></div>
+      <div class="dev-remote-note">${escHtml(errorMsg)}</div>
+    </div>`;
+    return;
+  }
+  const sorted = [...devs].sort((a, b) => {
+    const aBoard = ONBOARD_ADDRS.has(a), bBoard = ONBOARD_ADDRS.has(b);
+    const aKnown = !!I2C_DB[a],         bKnown = !!I2C_DB[b];
+    if (aBoard && !bBoard) return -1; if (!aBoard && bBoard) return 1;
+    if (aKnown && !bKnown) return -1; if (!aKnown && bKnown) return 1;
+    return a - b;
+  });
+  const cards = sorted.length === 0
+    ? '<div class="i2c-empty">No I2C devices detected on remote board.</div>'
+    : sorted.map(addr => buildDeviceCard(addr)).join('');
+  sec.innerHTML = `<div class="dev-board-section">
+    <div class="dev-board-label">Board 2 <span class="dev-role-badge remote">Remote</span></div>
+    <div class="i2c-results">${cards}</div>
+  </div>`;
+}
+
+function showDefineForm(addr)   { document.getElementById('dev-form-' + addr).classList.add('open'); }
+function hideDefineForm(addr)   { document.getElementById('dev-form-' + addr).classList.remove('open'); }
+
+function saveUserDevice(addr) {
+  const hex  = '0x' + addr.toString(16).toUpperCase().padStart(2, '0');
+  const name = (document.getElementById('dev-name-' + addr).value || '').trim();
+  const desc = (document.getElementById('dev-desc-' + addr).value || '').trim();
+  if (!name) return;
+  userDevices[hex] = { name, desc };
+  localStorage.setItem('userDevices', JSON.stringify(userDevices));
+  const card = document.getElementById('dev-card-' + addr);
+  if (card) card.outerHTML = buildDeviceCard(addr);
+}
+
+function deleteUserDevice(addr) {
+  const hex = '0x' + addr.toString(16).toUpperCase().padStart(2, '0');
+  delete userDevices[hex];
+  localStorage.setItem('userDevices', JSON.stringify(userDevices));
+  const card = document.getElementById('dev-card-' + addr);
+  if (card) card.outerHTML = buildDeviceCard(addr);
+}
+
 // ── Card collapse + tooltip ──────────────────────────────────────────────────
 const CARD_TIPS = {
   'c-temp': 'Ambient air temperature measured by the onboard SHTC3 sensor.',

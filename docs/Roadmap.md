@@ -140,7 +140,8 @@ Base Firmware
 
 ### v1.0 Scope
 
-- All five tabs functional (Dashboard, I2C Scanner, Devices, Rules, Settings)
+- All five tabs functional (Dashboard, Devices, Rules, Settings)
+- Devices tab: remote board I2C topology via ESP-NOW scan request/response
 - Plugin hook architecture (see below)
 - Curated recipe database: 20–30 most common DIY sensors pre-defined in webapp
 - Stable REST API — no breaking changes after v1.0
@@ -148,6 +149,7 @@ Base Firmware
 ### v1.0 Shippability Checklist
 
 - [ ] All five tabs functional
+- [ ] Devices tab: remote board I2C scan (ESP-NOW request → response → displayed in webapp)
 - [ ] Plugin hook architecture implemented (`customSetup`, `customLoop`, `customDataJSON`)
 - [ ] Curated device recipe database in webapp (novice one-click apply)
 - [ ] `/setup` includes Automato Network Name + password fields
@@ -199,6 +201,19 @@ exists. Document this clearly in user-facing materials.
 ---
 
 ## Platform Roadmap (automato.ag)
+
+### Phase 0 — automato.ag/agridata Public Page
+
+Goal: Standalone public agricultural data service — no Brain Board required, no accounts.
+
+Features:
+- All Agri Data sidebar datasets (weather, solar, moon, soil, AQI, alerts) + additional sources
+- Interactive data graphs and charts
+- Visual map viewer: zoom/pan, project API data as overlays
+- Map layers: topographic, watershed, soil classification, and other relevant agricultural layers
+- Available to anyone as a free public service
+
+Why Phase 0: Builds brand awareness and demonstrates Automato's agricultural focus before a Brain Board is in hand. Entirely independent of Brain Board development — can be built in parallel.
 
 ### Phase 1 — Cloud Relay (Remote Viewing)
 
