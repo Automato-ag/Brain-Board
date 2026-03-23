@@ -575,7 +575,8 @@
   #panel-dashboard { flex-direction: row; }
   #panel-devices,
   #panel-rules,
-  #panel-settings { flex-direction: column; padding: 32px 28px 48px; flex: 1; }
+  #panel-settings,
+  #panel-network { flex-direction: column; padding: 32px 28px 48px; flex: 1; }
 
   /* ── I2C SHARED STYLES ── */
   .i2c-scan-status {
@@ -764,6 +765,34 @@
   .placeholder-tab h3 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem; color: var(--text); }
   .placeholder-tab p { font-size: 0.62rem; color: var(--muted); letter-spacing: 0.05em; }
 
+  /* ── SETTINGS TAB ── */
+  .settings-section { margin-bottom: 28px; }
+  .settings-section-title { font-family: 'Space Mono', monospace; font-size: 0.58rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .settings-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .settings-label { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--muted); letter-spacing: 0.06em; }
+  .settings-input { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.68rem; padding: 8px 10px; width: 100%; max-width: 320px; }
+  .settings-input:focus { outline: none; border-color: var(--b1); }
+  .settings-hint { font-size: 0.58rem; color: var(--muted); opacity: 0.65; }
+  .settings-save-btn { background: var(--b1); color: #fff; border: none; border-radius: 6px; font-family: 'Space Mono', monospace; font-size: 0.62rem; padding: 8px 18px; cursor: pointer; letter-spacing: 0.05em; }
+  .settings-save-btn:hover { opacity: 0.85; }
+  .settings-msg { font-family: 'Space Mono', monospace; font-size: 0.6rem; margin-left: 10px; }
+  .settings-msg.ok  { color: #2ddf82; }
+  .settings-msg.err { color: #ff4d6d; }
+  .settings-wifi-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .settings-wifi-status { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--muted); }
+
+  /* ── NETWORK TAB ── */
+  .net-role-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; max-width: 480px; }
+  .net-role-badge { font-family: 'Space Mono', monospace; font-size: 0.6rem; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 20px; font-weight: 700; }
+  .net-role-badge.host    { background: rgba(45,223,130,0.15); color: #2ddf82; border: 1px solid rgba(45,223,130,0.3); }
+  .net-role-badge.remote  { background: rgba(120,160,255,0.15); color: #78a0ff; border: 1px solid rgba(120,160,255,0.3); }
+  .net-role-badge.gateway { background: rgba(45,223,130,0.15); color: #2ddf82; border: 1px solid rgba(45,223,130,0.3); }
+  .net-info-line { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--muted); margin-bottom: 6px; }
+  .net-info-line span { color: var(--text); }
+  .net-future { background: rgba(255,159,67,0.06); border: 1px solid rgba(255,159,67,0.2); border-radius: 8px; padding: 14px 16px; max-width: 480px; }
+  .net-future-title { font-family: 'Space Mono', monospace; font-size: 0.58rem; color: rgba(255,159,67,0.8); letter-spacing: 0.08em; margin-bottom: 6px; }
+  .net-future p { font-size: 0.62rem; color: var(--muted); line-height: 1.6; }
+
   .setup-banner {
     display: none;
     background: rgba(255,159,67,0.08); border: 1px solid rgba(255,159,67,0.25);
@@ -871,6 +900,9 @@
   </button>
   <button class="tab-btn" onclick="switchTab('settings')" id="tab-settings">
     <span class="tab-icon">≡</span> Settings
+  </button>
+  <button class="tab-btn" onclick="switchTab('network')" id="tab-network">
+    <span class="tab-icon">⬡</span> Network
   </button>
   <div class="tab-status-nav">
     <div id="conn-status" class="status-pill"><span class="dot"></span><span id="status-text">Connecting…</span></div>
@@ -1127,7 +1159,7 @@
   <div class="placeholder-tab">
     <div class="ph-icon">⚙</div>
     <h3>Rule Engine</h3>
-    <p>Tier 3 offline rule engine — coming in v0.9</p>
+    <p>Tier 3 offline rule engine — coming in v1.0</p>
   </div>
 </div>
 
@@ -1135,11 +1167,65 @@
 <!-- SETTINGS TAB                               -->
 <!-- ══════════════════════════════════════════ -->
 <div class="tab-panel" id="panel-settings">
-  <div class="placeholder-tab">
-    <div class="ph-icon">≡</div>
-    <h3>Settings</h3>
-    <p>Network, board name, and system settings — coming soon</p>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Board Identity</div>
+    <div class="settings-row">
+      <label class="settings-label" for="set-boardname">Board Name</label>
+      <input class="settings-input" id="set-boardname" type="text" maxlength="32" autocomplete="off" spellcheck="false" placeholder="e.g. greenhouse">
+      <span class="settings-hint">Used as the mDNS hostname — board is reachable at boardname.local</span>
+    </div>
   </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Automato Network</div>
+    <div class="settings-row">
+      <label class="settings-label" for="set-netname">Network Name</label>
+      <input class="settings-input" id="set-netname" type="text" maxlength="32" autocomplete="off" spellcheck="false" placeholder="e.g. automato-garden">
+      <span class="settings-hint">Boards sharing the same Network Name will discover each other automatically (v1.1)</span>
+    </div>
+    <div class="settings-row">
+      <label class="settings-label" for="set-netpass">Network Password</label>
+      <input class="settings-input" id="set-netpass" type="password" maxlength="32" autocomplete="off" placeholder="leave blank to keep current">
+      <span class="settings-hint">Used to derive your cloud identity — never transmitted directly</span>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;margin-bottom:32px;">
+    <button class="settings-save-btn" onclick="saveSettings()">Save</button>
+    <span class="settings-msg" id="settings-msg"></span>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">WiFi</div>
+    <div class="settings-wifi-row">
+      <span class="settings-wifi-status" id="settings-wifi-status">—</span>
+    </div>
+    <button onclick="resetWifi()" style="padding:8px 14px;background:transparent;border:1px solid rgba(255,77,109,0.3);border-radius:6px;color:#ff4d6d;font-family:'Space Mono',monospace;font-size:0.6rem;cursor:pointer;letter-spacing:0.05em;">Reset WiFi Credentials</button>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- NETWORK TAB                                -->
+<!-- ══════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-network">
+
+  <div class="net-role-card">
+    <div>
+      <div style="margin-bottom:8px;"><span class="net-role-badge host" id="net-role-badge">HOST</span></div>
+      <div class="net-info-line">Board name: <span id="net-boardname">—</span></div>
+      <div class="net-info-line">Address: <span id="net-mdns">—</span></div>
+      <div class="net-info-line">Network: <span id="net-netname">—</span></div>
+      <div class="net-info-line">WiFi: <span id="net-wifi">—</span></div>
+    </div>
+  </div>
+
+  <div class="net-future">
+    <div class="net-future-title">COMING IN V1.1</div>
+    <p>Auto-discovery via Network Name beacon — boards with the same Network Name find each other automatically, no manual configuration required. The board with the best router connection becomes the gateway. All boards remain reachable when moved.</p>
+  </div>
+
 </div>
 
 </div><!-- .page-wrap -->
@@ -1614,7 +1700,86 @@ function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'devices' && !devScanDone) runDeviceScan();
+  if (name === 'devices'  && !devScanDone)     runDeviceScan();
+  if (name === 'settings' && !settingsLoaded)  initSettingsTab();
+  if (name === 'network'  && !networkLoaded)   initNetworkTab();
+}
+
+// ═══════════════════════════════════════════════
+// SETTINGS TAB
+// ═══════════════════════════════════════════════
+let settingsLoaded = false;
+
+async function initSettingsTab() {
+  try {
+    const res  = await fetch('/version');
+    const data = await res.json();
+    const boardName = (data.mdns || '').replace('.local', '');
+    if (boardName) document.getElementById('set-boardname').value = boardName;
+    if (data.networkName) document.getElementById('set-netname').value = data.networkName;
+    const wifiEl = document.getElementById('settings-wifi-status');
+    if (data.wifiConnected) {
+      wifiEl.textContent = '📶 Connected · ' + (data.mdns || '');
+      wifiEl.style.color = '#2ddf82';
+    } else if (data.hasCredentials) {
+      wifiEl.textContent = '⚠ Credentials saved but network unreachable';
+      wifiEl.style.color = '#ff9f43';
+    } else {
+      wifiEl.textContent = '📡 Not configured';
+    }
+    settingsLoaded = true;
+  } catch(e) {}
+}
+
+async function saveSettings() {
+  const name    = document.getElementById('set-boardname').value.trim();
+  const netname = document.getElementById('set-netname').value.trim();
+  const netpass = document.getElementById('set-netpass').value;
+  const msg     = document.getElementById('settings-msg');
+  msg.textContent = '';
+  if (!name && !netname) { msg.className = 'settings-msg err'; msg.textContent = 'Nothing to save.'; return; }
+  try {
+    const body = new URLSearchParams({ name, netname, netpass });
+    const res  = await fetch('/settings', { method: 'POST', body });
+    const data = await res.json();
+    if (data.ok) {
+      msg.className = 'settings-msg ok';
+      msg.textContent = '✓ Saved — changes take effect after reboot';
+    } else {
+      msg.className = 'settings-msg err';
+      msg.textContent = 'Save failed.';
+    }
+  } catch(e) {
+    msg.className = 'settings-msg err';
+    msg.textContent = 'Error: ' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════
+// NETWORK TAB
+// ═══════════════════════════════════════════════
+let networkLoaded = false;
+
+async function initNetworkTab() {
+  try {
+    const res  = await fetch('/version');
+    const data = await res.json();
+    const boardName = (data.mdns || '').replace('.local', '');
+    document.getElementById('net-boardname').textContent = boardName || '—';
+    document.getElementById('net-mdns').textContent      = data.mdns ? 'http://' + data.mdns : '—';
+    document.getElementById('net-netname').textContent   = data.networkName || '—';
+    const wifiEl = document.getElementById('net-wifi');
+    if (data.wifiConnected) {
+      wifiEl.textContent  = 'Connected';
+      wifiEl.style.color  = '#2ddf82';
+    } else if (data.hasCredentials) {
+      wifiEl.textContent  = 'Credentials saved — network unreachable';
+      wifiEl.style.color  = '#ff9f43';
+    } else {
+      wifiEl.textContent  = 'Not configured';
+    }
+    networkLoaded = true;
+  } catch(e) {}
 }
 
 // ═══════════════════════════════════════════════

@@ -2218,6 +2218,27 @@ void handleSetupGet() {
 }
 
 // ─────────────────────────────────────────────
+// HTTP: /settings  POST — save board name / network name / password (no WiFi fields)
+void handleSettingsPost() {
+  String name    = server.arg("name");
+  String netname = server.arg("netname");
+  String netpass = server.arg("netpass");
+  name.trim();
+  netname.trim();
+
+  prefs.begin("automato", false);
+  if (name.length()    > 0) prefs.putString("name",    name);
+  if (netname.length() > 0) prefs.putString("netname", netname);
+  prefs.putString("netpass", netpass);
+  prefs.end();
+
+  Serial.printf("Settings saved. Name: %s  Network: %s\n",
+                name.length()    > 0 ? name.c_str()    : "(unchanged)",
+                netname.length() > 0 ? netname.c_str() : "(unchanged)");
+
+  server.send(200, "application/json", "{\"ok\":true}");
+}
+
 // HTTP: /setup  POST — save credentials to NVS and reboot
 // ─────────────────────────────────────────────
 void handleSetupPost() {
@@ -2514,6 +2535,7 @@ void setup() {
   server.on("/relay/status",              handleRelayStatus);
   server.on("/i2c-scan",                  handleI2CScan);
   server.on("/remote-scan",               handleRemoteScan);
+  server.on("/settings",       HTTP_POST, handleSettingsPost);
   server.on("/setup",          HTTP_GET,  handleSetupGet);
   server.on("/setup",          HTTP_POST, handleSetupPost);
   server.on("/wifi/reset",     HTTP_POST, handleWifiReset);
@@ -2537,6 +2559,7 @@ void setup() {
   Serial.println("  GET  /relay/status        → relay state");
   Serial.println("  GET  /i2c-scan            → I2C bus scan JSON");
   Serial.println("  GET  /setup               → WiFi provisioning form");
+  Serial.println("  POST /settings            → save board name / network name");
   Serial.println("  POST /setup               → save WiFi credentials");
   Serial.println("  POST /wifi/reset          → clear credentials + reboot");
   Serial.println("  GET  /update              → OTA update UI");
