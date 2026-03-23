@@ -1,6 +1,6 @@
 # Automato Brain Board — Product Roadmap
 
-Last updated: 2026-03-22
+Last updated: 2026-03-23
 
 This document captures the planned development path for the Automato Brain Board
 firmware, dashboard, and automato.ag platform integration. It is a living document
@@ -122,18 +122,19 @@ Base Firmware
 |---------|-------|--------|
 | v0.8.1 | Tab nav shell, I2C Scanner tab, `/i2c-scan` endpoint | ✅ complete |
 | v0.9 | Devices tab + remote I2C scan via ESP-NOW + Automato Network Name | ✅ complete |
-| v1.0 | Rules tab + Settings tab + plugin hooks + recipe database | next |
-| v1.1 | Auto-discovery + dynamic gateway + 1-hop relay | post-v1.0 |
-| v1.2 | Multi-hop relay + full peer equality + routing tables | post-v1.1 |
+| v1.0 | Settings tab (functional) + Network tab (stub) + `POST /settings` endpoint | ✅ complete |
+| v1.1 | ESP-NOW mesh: MSG_HELLO beacon, unified firmware, dynamic gateway, `networkname.local`, 1-hop relay, live Network tab peer map + plugin hooks | next |
+| v1.2 | Rules tab: firmware rule engine, LittleFS rule storage, local + peer sensor conditions, relay actions + recipe database | post-v1.1 |
+| v1.3 | Multi-hop relay + routing tables + full peer equality + cross-board rule conditions | post-v1.2 |
 
-### v0.9 Scope — Complete
+### v0.9 Scope — Complete ✅
 
 **Devices tab (replaces I2C Scanner tab):**
 - Host I2C scan via `/i2c-scan` endpoint
 - Remote board I2C scan via ESP-NOW (`MSG_SCAN_REQUEST` / `MSG_SCAN_RESPONSE`)
 - User device definition form — name and description stored in localStorage by address
 - Collapsible I2C address map (full 0x08–0x77 grid)
-- 4 tabs total: Dashboard · Devices · Rules · Settings
+- 5 tabs present: Dashboard · Devices · Rules · Settings · Network
 
 **`/setup` additions:**
 - Automato Network Name field — auto-generated default (`automato-XXXX`), user-editable
@@ -144,30 +145,51 @@ Base Firmware
 **WiFi reset UX:**
 - Reset flow shows step-by-step reconnection instructions with AP SSID and `http://192.168.4.1/setup` link
 
-### v1.0 Scope
+### v1.0 Scope — Complete ✅
 
-- All four tabs functional (Dashboard, Devices, Rules, Settings)
-- Rules tab: `/rules` GET/POST endpoints, NVS persistence, `evaluateRules()` active in loop
-- Settings tab: board name, Network Name, system settings (currently in `/setup` only)
-- Plugin hook architecture (see below)
-- Curated recipe database: 20–30 most common DIY sensors pre-defined in webapp
-- Stable REST API — no breaking changes after v1.0
+- Settings tab: board name, Network Name + password, WiFi reset — pre-fills from `/version` on open
+- Network tab (stub): HOST/REMOTE role badge, board name, mDNS address, Network Name, WiFi status; "Coming in v1.1" section explains auto-discovery
+- `POST /settings` endpoint: saves board name, Network Name, and password to NVS without requiring WiFi credentials (unlike `POST /setup` which requires `ssid`)
+- Stable 5-tab layout established: Dashboard · Devices · Rules · Settings · Network
 
-### v1.0 Shippability Checklist
+### v1.1 Scope — Next
 
-- [ ] All four tabs functional
-- [ ] Rules tab: full rule engine active, NVS persistence, `/rules` endpoints
-- [ ] Settings tab: board name, Network Name editable from Settings (not just `/setup`)
-- [ ] Plugin hook architecture implemented (`customSetup`, `customLoop`, `customDataJSON`)
-- [ ] Curated device recipe database in webapp (novice one-click apply)
-- [ ] Stable documented API — no breaking changes after v1.0
-- [ ] Pre-built `.bin` on GitHub — flash without Arduino IDE
-- [ ] OTA update flow verified end-to-end
-- [ ] OTA instructions in QuickStart.md
+- **Unified firmware:** `BrainBoard_Host` and `BrainBoard_Remote` merge into single `BrainBoard` firmware — all boards are full peers
+- **MSG_HELLO beacon:** boards broadcast Network Name + board name + MAC + hasWiFi on startup and periodically; matching boards auto-register as ESP-NOW peers
+- **Dynamic gateway election:** board with active WiFi router connection = gateway; changes automatically when boards move; strongest RSSI wins if multiple candidates
+- **`networkname.local` mDNS:** gateway advertises Network Name as mDNS hostname (e.g., `southknox.local`); user bookmark works regardless of which board is gateway
+- **1-hop relay:** boards out of WiFi range relay sensor data through nearest ESP-NOW peer; commands relay back the same path
+- **Network tab (live):** peer map showing all discovered boards, their roles, relay paths, and WiFi status
+- **Plugin hook architecture:** `customSetup()`, `customLoop()`, `customDataJSON()` weak functions in base firmware; user adds `custom.ino` to sketch folder
+
+### v1.1 Shippability Checklist
+
+- [ ] Unified firmware — single `BrainBoard.ino` replaces both Host and Remote
+- [ ] MSG_HELLO beacon implemented and tested (2+ boards auto-discover)
+- [ ] Dynamic gateway election tested (gateway transfers when board moves)
+- [ ] `networkname.local` mDNS verified from gateway board
+- [ ] 1-hop relay verified (board out of WiFi range, data reaches dashboard)
+- [ ] Network tab: live peer map populated from beacon data
+- [ ] Plugin hook architecture implemented and documented
+
+### v1.2 Scope
+
+- Rules tab: full firmware rule engine, LittleFS rule storage, `/rules` GET/POST endpoints
+- Rule conditions: local board sensors (temp, humidity, light); peer board sensors (using peer MAC identity established in v1.1)
+- Rule actions: local relay (TCA9534); future output boards (AC-01, DC-01–04) as they ship
+- Rule schema designed for forward compatibility — `"source": "local"` in v1.2 becomes `"source": "peer:<mac>"` without migration
+- Curated recipe database: 20–30 most common DIY sensors pre-defined in webapp (used for device naming in Devices tab and referenced in Rules conditions)
+- Stable documented REST API — no breaking changes after v1.2
+
+### v1.3 Scope
+
+- Multi-hop relay + routing tables (see Multi-Board Networking section below)
+- Cross-board rule conditions referencing boards 2+ hops away
+- Full peer equality — no architectural distinction between any boards
 
 ---
 
-## Plugin Hook Architecture (v1.0)
+## Plugin Hook Architecture (v1.1)
 
 Intermediate users can add any Arduino library and custom sensor support without
 touching the base firmware. Arduino concatenates all `.ino` files in a sketch folder
@@ -196,9 +218,9 @@ no friction for novice users.
 
 | Level | User | Mechanism | Available |
 |-------|------|-----------|-----------|
-| 0 | Novice | Built-in recipe database — one-click apply | v1.0 |
+| 0 | Novice | Built-in recipe database — one-click apply | v1.2 |
 | 1 | Novice | Community recipe database — search and apply | Phase 3 |
-| 2 | Intermediate | `custom.ino` plugin hook + Arduino library | v1.0 |
+| 2 | Intermediate | `custom.ino` plugin hook + Arduino library | v1.1 |
 | 3 | Advanced | Full firmware fork | Always |
 
 Novices with devices not in any database cannot use them until Level 0 or 1 coverage
@@ -355,7 +377,7 @@ Router <─WiFi─> Board 1 (Host) <─ESP-NOW─> Board 2 (Remote)
 Boards within ESP-NOW range of Board 1 only. Fixed roles. Remote MAC addresses
 must be known in advance. Board 1 must remain closest to router.
 
-### v1.1 Target — Auto-Discovery + Dynamic Gateway + 1-Hop Relay
+### v1.1 Target — Auto-Discovery + Dynamic Gateway + 1-Hop Relay (next)
 
 ```
 Router <─WiFi─> Gateway <─ESP-NOW─> Board 2
@@ -407,7 +429,7 @@ from the dashboard relay back the same path.
 | ESP-NOW range only (1 hop) | Data relayed through nearest peer, visible in dashboard |
 | Completely isolated | Tier 3 rules run independently; rejoins automatically when back in range |
 
-### v1.2 Target — Multi-Hop Relay + Routing Tables
+### v1.3 Target — Multi-Hop Relay + Routing Tables
 
 ```
 Router <─WiFi─> Board 1 <─ESP-NOW─> Board 2 <─ESP-NOW─> Board 4
@@ -497,7 +519,7 @@ Custom ESP-NOW code, once written, is stable indefinitely.
 | Every board is a full peer | Boards move with plants and seasons. Fixed Host/Remote roles require manual reconfiguration on every move. Dynamic gateway election eliminates this friction. |
 | Dynamic gateway election | Whichever board has active WiFi router connectivity becomes the gateway. Changes automatically when boards move. User's bookmark (`networkname.local`) never breaks. |
 | `networkname.local` mDNS | Gateway advertises Network Name as mDNS hostname. User always reaches the network at the same address regardless of which physical board is currently the gateway. |
-| Multi-hop via custom relay (v1.2) | Boards may be out of WiFi range but within ESP-NOW range of another board. TTL + message-ID duplicate-drop prevents routing loops. Routing tables update within 1–3 beacon cycles when boards move. |
+| Multi-hop via custom relay (v1.3) | Boards may be out of WiFi range but within ESP-NOW range of another board. TTL + message-ID duplicate-drop prevents routing loops. Routing tables update within 1–3 beacon cycles when boards move. |
 | Board mobility is a first-class use case | Boards follow plants, pots, and seasons. Architecture must self-organize around this without requiring user reconfiguration. |
 
 ---
@@ -517,9 +539,11 @@ Custom ESP-NOW code, once written, is stable indefinitely.
 | v0.8 | WiFi provisioning, captive portal, mDNS, channel scan |
 | v0.8.1 | Tab nav shell, I2C Scanner tab, `/i2c-scan` endpoint ✅ |
 | v0.9 | Devices tab, remote I2C scan via ESP-NOW, Automato Network Name | ✅ |
-| v1.0 | All four tabs, plugin hooks, recipe database — stable, shippable |
-| v1.1 | Auto-discovery, dynamic gateway, `networkname.local`, 1-hop relay |
-| v1.2 | Multi-hop relay, routing tables, full peer equality |
+| v1.0 | Settings tab, Network tab stub, `POST /settings` endpoint | ✅ |
+| v1.1 | Unified firmware, MSG_HELLO auto-discovery, dynamic gateway, `networkname.local`, 1-hop relay, plugin hooks |
+| v1.2 | Rules tab, firmware rule engine, recipe database — stable, shippable |
+| v1.3 | Multi-hop relay, routing tables, full peer equality, cross-board rules |
+| v1.3 | Multi-hop relay, routing tables, full peer equality, cross-board rules |
 
 ---
 
