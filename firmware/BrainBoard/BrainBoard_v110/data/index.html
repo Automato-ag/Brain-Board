@@ -773,6 +773,10 @@
   .settings-input { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.68rem; padding: 8px 10px; width: 100%; max-width: 320px; }
   .settings-input:focus { outline: none; border-color: var(--b1); }
   .settings-hint { font-size: 0.58rem; color: var(--muted); opacity: 0.65; }
+  .pw-wrap { position: relative; max-width: 320px; }
+  .pw-wrap .settings-input { max-width: 100%; padding-right: 46px; }
+  .pw-show { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 0.58rem; cursor: pointer; padding: 4px; }
+  .pw-show:hover { color: var(--text); }
   .settings-save-btn { background: var(--b1); color: #fff; border: none; border-radius: 6px; font-family: 'Space Mono', monospace; font-size: 0.62rem; padding: 8px 18px; cursor: pointer; letter-spacing: 0.05em; }
   .settings-save-btn:hover { opacity: 0.85; }
   .settings-msg { font-family: 'Space Mono', monospace; font-size: 0.6rem; margin-left: 10px; }
@@ -793,6 +797,12 @@
   .settings-back-btn { background: transparent; border: none; color: var(--b1); font-family: 'Space Mono', monospace; font-size: 0.6rem; cursor: pointer; padding: 0; letter-spacing: 0.05em; }
   .settings-back-btn:hover { opacity: 0.75; }
   .settings-board-nav-title { font-family: 'Space Mono', monospace; font-size: 0.85rem; color: var(--text); }
+  .settings-board-row.selected { border-color: var(--b1); background: rgba(0,229,255,0.04); }
+  .settings-boards-body { display: flex; gap: 0; }
+  .settings-boards-list { width: 200px; flex-shrink: 0; border-right: 1px solid var(--border); padding-right: 14px; overflow-y: auto; max-height: 60vh; }
+  .settings-boards-list .settings-board-row { max-width: none; }
+  .settings-boards-detail { flex: 1; padding-left: 22px; overflow-y: auto; }
+  .settings-boards-empty { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--muted); padding: 20px 0; }
 
   /* ── NETWORK TAB ── */
   .net-role-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; max-width: 480px; }
@@ -830,6 +840,30 @@
   .sync-slider:before { position: absolute; content: ''; height: 14px; width: 14px; left: 2px; bottom: 2px; background: #64748b; border-radius: 50%; transition: 0.2s; }
   .sync-toggle input:checked + .sync-slider { background: rgba(0,229,255,0.18); border-color: rgba(0,229,255,0.4); }
   .sync-toggle input:checked + .sync-slider:before { transform: translateX(18px); background: #00e5ff; }
+
+  /* ── WEBAPP SETTINGS ── */
+  .webapp-setting-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .webapp-setting-row:last-child { border-bottom: none; }
+  .webapp-setting-label { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--text); margin-bottom: 2px; }
+  .webapp-setting-hint { font-family: 'Space Mono', monospace; font-size: 0.58rem; color: var(--muted); line-height: 1.6; max-width: 280px; }
+  .webapp-select { background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.65rem; padding: 5px 10px; cursor: pointer; }
+  .webapp-select:disabled { opacity: 0.4; cursor: default; }
+  .agri-source-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); gap: 10px; }
+  .agri-source-row:last-child { border-bottom: none; }
+  .agri-source-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+  .agri-source-label { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: var(--text); }
+  .agri-source-count { font-family: 'Space Mono', monospace; font-size: 0.55rem; color: var(--muted); white-space: nowrap; }
+  .agri-source-arrow { background: none; border: none; color: var(--muted); font-size: 0.85rem; cursor: pointer; padding: 4px 6px; flex-shrink: 0; }
+  .agri-source-arrow:hover { color: var(--text); }
+  .agri-category-header { display: flex; align-items: center; gap: 7px; font-family: 'Space Mono', monospace; font-size: 0.52rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); padding: 12px 0 6px; cursor: pointer; user-select: none; border-top: 1px solid var(--border); margin-top: 4px; }
+  .agri-category-header:first-child { border-top: none; margin-top: 0; }
+  .agri-category-header:hover { color: var(--text); }
+  .agri-cat-arrow { font-size: 0.55rem; transition: transform 0.15s; }
+  .agri-check-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .agri-check-row:last-child { border-bottom: none; }
+  .agri-check-label { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--text); cursor: pointer; flex: 1; }
+  .readonly-badge { display: inline-block; font-family: 'Space Mono', monospace; font-size: 0.5rem; letter-spacing: 0.08em; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; margin-left: 8px; vertical-align: middle; }
+  .coming-soon { display: inline-block; font-family: 'Space Mono', monospace; font-size: 0.5rem; letter-spacing: 0.08em; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: middle; }
 
   .setup-banner {
     display: none;
@@ -994,14 +1028,6 @@
     </div>
   </div>
 
-  <!-- ── UNITS ── -->
-  <div class="units-row">
-    <span class="field-label">Units</span>
-    <div class="units-toggle">
-      <button class="units-btn active" id="btn-metric"   onclick="setUnits('metric')">Metric</button>
-      <button class="units-btn"        id="btn-imperial" onclick="setUnits('imperial')">Imperial</button>
-    </div>
-  </div>
 
   <!-- ── LOCATION ── -->
   <div class="location-row">
@@ -1023,7 +1049,7 @@
       <span id="dd-arrow">▼</span>
     </button>
     <div class="dropdown-menu" id="dd-menu" style="display:none;">
-      <div class="dd-group-lbl">Weather &amp; Forecast</div>
+      <div class="dd-group-lbl" data-group="w">Weather &amp; Forecast</div>
       <div class="dd-item" data-id="w-temp"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Outdoor Temperature</span><span class="dd-item-source">(Open-Meteo)</span></div>
       <div class="dd-item" data-id="w-precip"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Precipitation</span><span class="dd-item-source">(Open-Meteo)</span></div>
       <div class="dd-item" data-id="w-wind"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Wind Speed</span><span class="dd-item-source">(Open-Meteo)</span></div>
@@ -1031,7 +1057,7 @@
       <div class="dd-item" data-id="w-cloud"   onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Cloud Cover</span><span class="dd-item-source">(Open-Meteo)</span></div>
       <div class="dd-item" data-id="w-humid"   onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Outdoor Humidity</span><span class="dd-item-source">(Open-Meteo)</span></div>
 
-      <div class="dd-group-lbl">Solar &amp; Light</div>
+      <div class="dd-group-lbl" data-group="s">Solar &amp; Light</div>
       <div class="dd-item" data-id="s-firstlight" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">First Light / Civil Dawn</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
       <div class="dd-item" data-id="s-sunrise"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Sunrise</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
       <div class="dd-item" data-id="s-solarnoon"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Solar Noon</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
@@ -1041,22 +1067,22 @@
       <div class="dd-item" data-id="s-uv"         onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">UV Index</span><span class="dd-item-source">(Open-Meteo)</span></div>
       <div class="dd-item" data-id="s-rad"        onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Shortwave Radiation</span><span class="dd-item-source">(Open-Meteo)</span></div>
 
-      <div class="dd-group-lbl">Soil &amp; Agriculture</div>
+      <div class="dd-group-lbl" data-group="a">Soil &amp; Agriculture</div>
       <div class="dd-item" data-id="a-soil0"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Soil Temp (0–7cm)</span><span class="dd-item-source">(Open-Meteo)</span></div>
       <div class="dd-item" data-id="a-soil1"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Soil Temp (7–28cm)</span><span class="dd-item-source">(Open-Meteo)</span></div>
       <div class="dd-item" data-id="a-soilm"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Soil Moisture</span><span class="dd-item-source">(Open-Meteo)</span></div>
       <div class="dd-item" data-id="a-et"     onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Evapotranspiration (ET₀)</span><span class="dd-item-source">(Open-Meteo)</span></div>
       <div class="dd-item" data-id="a-vpd"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Vapor Pressure Deficit</span><span class="dd-item-source">(Open-Meteo)</span></div>
 
-      <div class="dd-group-lbl">Moon</div>
+      <div class="dd-group-lbl" data-group="m">Moon</div>
       <div class="dd-item" data-id="m-phase"    onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Moon Phase</span><span class="dd-item-source">(USNO)</span></div>
       <div class="dd-item" data-id="m-moonrise" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Moonrise</span><span class="dd-item-source">(USNO)</span></div>
       <div class="dd-item" data-id="m-moonset"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Moonset</span><span class="dd-item-source">(USNO)</span></div>
 
-      <div class="dd-group-lbl">Weather Alerts</div>
+      <div class="dd-group-lbl" data-group="n">Weather Alerts</div>
       <div class="dd-item" data-id="n-frost" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Frost / Freeze Alert</span><span class="dd-item-source">(NOAA NWS)</span></div>
 
-      <div class="dd-group-lbl">Air Quality</div>
+      <div class="dd-group-lbl" data-group="q">Air Quality</div>
       <div class="dd-item" data-id="q-pm25"   onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">PM2.5 Particulates</span><span class="dd-item-source">(Open-Meteo AQI)</span></div>
       <div class="dd-item" data-id="q-pollen" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Pollen Count</span><span class="dd-item-source">(Open-Meteo AQI)</span></div>
     </div>
@@ -1208,24 +1234,108 @@
 
   <!-- ── MAIN VIEW: board list ── -->
   <div id="settings-main-view">
+
+    <div class="settings-section">
+      <div class="settings-section-title">Display &amp; Behavior</div>
+
+      <div class="webapp-setting-row">
+        <div class="webapp-setting-label">Units</div>
+        <div class="units-toggle">
+          <button class="units-btn" id="ws-btn-metric"   onclick="setUnits('metric')">Metric</button>
+          <button class="units-btn" id="ws-btn-imperial" onclick="setUnits('imperial')">Imperial</button>
+        </div>
+      </div>
+
+      <div class="webapp-setting-row">
+        <div>
+          <div class="webapp-setting-label">Refresh rate</div>
+          <div class="webapp-setting-hint">How often the dashboard polls the board for new data.</div>
+        </div>
+        <select class="webapp-select" id="ws-refresh" onchange="setRefreshRate(this.value)">
+          <option value="2500">2.5s</option>
+          <option value="5000">5s</option>
+          <option value="10000">10s</option>
+          <option value="30000">30s</option>
+        </select>
+      </div>
+
+      <div class="webapp-setting-row">
+        <div>
+          <div class="webapp-setting-label">Auto-sync time on connect</div>
+          <div class="webapp-setting-hint">Updates board time from this device each time you open Settings. Uses your device's clock — no internet required.</div>
+        </div>
+        <label class="sync-toggle" style="flex-shrink:0;">
+          <input type="checkbox" id="set-autosync" onchange="setAutoSync(this.checked)">
+          <span class="sync-slider"></span>
+        </label>
+      </div>
+
+      <div class="webapp-setting-row">
+        <div class="webapp-setting-label">Theme <span class="coming-soon">coming soon</span></div>
+        <select class="webapp-select" disabled><option>Dark</option></select>
+      </div>
+
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Agri Data Sources</div>
+      <div class="settings-board-row" onclick="openAgriView()" style="max-width:420px;">
+        <span class="settings-board-row-name">Agri Data Sources</span>
+        <span class="settings-board-row-arrow">›</span>
+      </div>
+    </div>
+
     <div class="settings-section">
       <div class="settings-section-title">Boards</div>
-      <div id="settings-board-list">
-        <div style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);">Loading…</div>
+      <div class="settings-board-row" onclick="openBoardsView()" style="max-width:420px;">
+        <span class="settings-board-row-name">Board Settings</span>
+        <span class="settings-board-row-arrow">›</span>
       </div>
     </div>
   </div>
 
-  <!-- ── BOARD SETTINGS VIEW ── -->
-  <div id="settings-board-view" style="display:none;">
+  <!-- ── AGRI DATA SOURCES SUBMENU VIEW ── -->
+  <div id="settings-agri-view" style="display:none;">
+    <div class="settings-board-nav" style="margin-bottom:18px;">
+      <button class="settings-back-btn" onclick="agriBack()">← Settings</button>
+      <span class="settings-board-nav-title">Agri Data Sources</span>
+    </div>
+    <div class="settings-hint" style="margin-bottom:16px;">Enable or disable data sources. Disabled sources are hidden from the dashboard dropdown and sidebar.</div>
+    <div id="ws-source-list"></div>
+  </div>
 
-    <div class="settings-board-nav">
-      <button class="settings-back-btn" onclick="settingsBack()">← Boards</button>
-      <span class="settings-board-nav-title" id="settings-board-nav-title">—</span>
+  <!-- ── AGRI SOURCE DETAIL VIEW ── -->
+  <div id="settings-agri-source-view" style="display:none;">
+    <div class="settings-board-nav" style="margin-bottom:18px;">
+      <button class="settings-back-btn" onclick="agriSourceBack()">← Agri Data Sources</button>
+      <span class="settings-board-nav-title" id="agri-source-title">—</span>
+    </div>
+    <div id="ws-agri-list"></div>
+  </div>
+
+  <!-- ── BOARDS SUBMENU VIEW ── -->
+  <div id="settings-boards-view" style="display:none;">
+
+    <div class="settings-board-nav" style="margin-bottom:18px;">
+      <button class="settings-back-btn" onclick="boardsBack()">← Settings</button>
+      <span class="settings-board-nav-title">Boards</span>
     </div>
 
-    <!-- Local board: fully editable -->
-    <div id="settings-local-content" style="display:none;">
+    <div class="settings-boards-body">
+
+      <!-- Left: scrollable board list -->
+      <div class="settings-boards-list">
+        <div id="settings-board-list">
+          <div style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Right: detail panel -->
+      <div class="settings-boards-detail">
+        <div id="settings-boards-empty" class="settings-boards-empty">Select a board to view its settings.</div>
+
+        <!-- Local board: fully editable -->
+        <div id="settings-local-content" style="display:none;">
       <div class="settings-section">
         <div class="settings-section-title">Board Identity</div>
         <div class="settings-row">
@@ -1244,7 +1354,10 @@
         </div>
         <div class="settings-row">
           <label class="settings-label" for="set-netpass">Network Password</label>
-          <input class="settings-input" id="set-netpass" type="password" maxlength="32" autocomplete="off" placeholder="leave blank to keep current">
+          <div class="pw-wrap">
+            <input class="settings-input" id="set-netpass" type="password" maxlength="32" autocomplete="off" placeholder="leave blank to keep current">
+            <button type="button" class="pw-show" onclick="togglePw('set-netpass')">Show</button>
+          </div>
           <span class="settings-hint">Used to derive your cloud identity — never transmitted directly</span>
         </div>
       </div>
@@ -1287,16 +1400,6 @@
           <div class="settings-label">Last synced</div>
           <div id="set-lastsynced" style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);">—</div>
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;max-width:420px;margin-bottom:12px;">
-          <div>
-            <div class="settings-label" style="margin-bottom:2px;">Auto-sync on connect</div>
-            <span class="settings-hint">Updates board time from this device each time you open this tab. Uses your device's clock — no internet required.</span>
-          </div>
-          <label class="sync-toggle" style="margin-left:16px;">
-            <input type="checkbox" id="set-autosync" onchange="setAutoSync(this.checked)">
-            <span class="sync-slider"></span>
-          </label>
-        </div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
           <button class="settings-save-btn" onclick="syncTimeNow(false)">Sync now</button>
           <span id="set-sync-msg" class="settings-msg"></span>
@@ -1326,13 +1429,13 @@
         <div id="settings-peer-link-wrap" style="display:none;">
           <a id="settings-peer-link" href="#" target="_blank" style="font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--b1);text-decoration:none;">Open board webapp →</a>
         </div>
-        <div id="settings-peer-nolink" style="display:none;font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);">
-          Board is not on WiFi — connect to its SoftAP hotspot to access settings.
-        </div>
+        <div id="settings-peer-nolink" style="display:none;font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);line-height:1.7;"></div>
       </div>
-    </div>
+    </div><!-- /settings-peer-content -->
 
-  </div>
+      </div><!-- /settings-boards-detail -->
+    </div><!-- /settings-boards-body -->
+  </div><!-- /settings-boards-view -->
 
 </div>
 
@@ -1370,10 +1473,11 @@
 // ═══════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════
-const REFRESH_MS  = 2500;
-const AGRI_MS     = 60000;
+let   refreshMs     = parseInt(localStorage.getItem('refreshMs') || '2500');
+const AGRI_MS       = 60000;
+let   fetchInterval = null;
 
-let units           = 'metric';
+let units           = localStorage.getItem('units') || 'metric';
 let ddOpen          = false;
 let activeParams    = {};
 let externalData    = {};
@@ -1435,8 +1539,11 @@ function updateRelayUI(state, manual, gpioOk) {
 // ═══════════════════════════════════════════════
 function setUnits(u) {
   units = u;
-  document.getElementById('btn-metric').classList.toggle('active', u === 'metric');
-  document.getElementById('btn-imperial').classList.toggle('active', u === 'imperial');
+  localStorage.setItem('units', u);
+  const wm = document.getElementById('ws-btn-metric');
+  const wi = document.getElementById('ws-btn-imperial');
+  if (wm) wm.classList.toggle('active', u === 'metric');
+  if (wi) wi.classList.toggle('active', u === 'imperial');
   renderChips();
 }
 
@@ -1445,6 +1552,12 @@ function setUnits(u) {
 // ═══════════════════════════════════════════════
 function fmt1(n)   { return (n != null && isFinite(n)) ? n.toFixed(1) : '—'; }
 function fmtInt(n) { return isFinite(n) ? Math.round(n).toString() : '—'; }
+function togglePw(id) {
+  const el = document.getElementById(id);
+  const btn = el.nextElementSibling;
+  el.type = el.type === 'password' ? 'text' : 'password';
+  if (btn) btn.textContent = el.type === 'password' ? 'Show' : 'Hide';
+}
 function humidFeel(h) {
   if (h < 25) return 'Very dry'; if (h < 40) return 'Dry';
   if (h < 60) return 'Comfortable'; if (h < 75) return 'Humid';
@@ -1826,12 +1939,30 @@ async function fetchVersion() {
       lbl.innerHTML = '📡 No network configured.' + (net ? '<br>' + net : '');
       setStatus('setup');
     }
+    const boardLabel = (data.mdns || '').replace('.local', '') || data.apSSID || '';
+    if (boardLabel) {
+      const b1h2 = document.querySelector('#col-b1 h2');
+      if (b1h2) b1h2.textContent = boardLabel;
+    }
+  } catch(e) {}
+}
+
+async function fetchPeerLabel() {
+  try {
+    const res   = await fetch('/peers');
+    const data  = await res.json();
+    const peers = data.peers || [];
+    const b2h2  = document.querySelector('#col-b2 h2');
+    if (b2h2 && peers.length > 0)
+      b2h2.textContent = peers[0].boardName || peers[0].mac;
   } catch(e) {}
 }
 
 fetchData();
 fetchVersion();
-setInterval(fetchData, REFRESH_MS);
+fetchPeerLabel();
+applyAgriSourceFilter();
+fetchInterval = setInterval(fetchData, refreshMs);
 
 // ═══════════════════════════════════════════════
 // TAB NAVIGATION
@@ -1851,9 +1982,184 @@ function switchTab(name) {
 // ═══════════════════════════════════════════════
 let settingsLoaded = false;
 
+function selectBoardRow(row) {
+  document.querySelectorAll('#settings-board-list .settings-board-row')
+    .forEach(r => r.classList.remove('selected'));
+  row.classList.add('selected');
+}
+
 async function initSettingsTab() {
-  await loadSettingsBoardList();
+  initWebAppSettings();
   settingsLoaded = true;
+}
+
+// ═══════════════════════════════════════════════
+// WEBAPP SETTINGS
+// ═══════════════════════════════════════════════
+const AGRI_SOURCES = [
+  { id:'om',    label:'Open-Meteo' },
+  { id:'ss',    label:'Sunrise-Sunset.org' },
+  { id:'usno',  label:'USNO' },
+  { id:'noaa',  label:'NOAA NWS' },
+  { id:'omaqi', label:'Open-Meteo AQI' },
+];
+
+const AGRI_PARAMS = [
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-temp',       srcId:'om',    label:'Outdoor Temperature'     },
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-precip',     srcId:'om',    label:'Precipitation'            },
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-wind',       srcId:'om',    label:'Wind Speed'               },
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-cloud',      srcId:'om',    label:'Cloud Cover'              },
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-humid',      srcId:'om',    label:'Outdoor Humidity'         },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-firstlight', srcId:'ss',    label:'First Light / Civil Dawn' },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-sunrise',    srcId:'ss',    label:'Sunrise'                  },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-solarnoon',  srcId:'ss',    label:'Solar Noon'               },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-sunset',     srcId:'ss',    label:'Sunset'                   },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-lastlight',  srcId:'ss',    label:'Last Light / Civil Dusk'  },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-daylen',     srcId:'ss',    label:'Day Length'               },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-uv',         srcId:'om',    label:'UV Index'                 },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-rad',        srcId:'om',    label:'Shortwave Radiation'      },
+  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-soil0',      srcId:'om',    label:'Soil Temp (0–7cm)'        },
+  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-soil1',      srcId:'om',    label:'Soil Temp (7–28cm)'       },
+  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-soilm',      srcId:'om',    label:'Soil Moisture'            },
+  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-et',         srcId:'om',    label:'Evapotranspiration (ET₀)' },
+  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-vpd',        srcId:'om',    label:'Vapor Pressure Deficit'   },
+  { group:'m', groupLabel:'Moon',                   id:'m-phase',      srcId:'usno',  label:'Moon Phase'               },
+  { group:'m', groupLabel:'Moon',                   id:'m-moonrise',   srcId:'usno',  label:'Moonrise'                 },
+  { group:'m', groupLabel:'Moon',                   id:'m-moonset',    srcId:'usno',  label:'Moonset'                  },
+  { group:'n', groupLabel:'Weather Alerts',         id:'n-frost',      srcId:'noaa',  label:'Frost / Freeze Alert'     },
+  { group:'q', groupLabel:'Air Quality',            id:'q-pm25',       srcId:'omaqi', label:'PM2.5 Particulates'       },
+  { group:'q', groupLabel:'Air Quality',            id:'q-pollen',     srcId:'omaqi', label:'Pollen Count'             },
+];
+
+function agriParamEnabled(id) {
+  return localStorage.getItem('agriSrc_' + id) !== 'false';
+}
+
+function getSourceState(srcId) {
+  const items = AGRI_PARAMS.filter(p => p.srcId === srcId);
+  const n = items.filter(p => agriParamEnabled(p.id)).length;
+  return n === items.length ? 'all' : n === 0 ? 'none' : 'some';
+}
+
+function toggleSource(srcId, enabled) {
+  AGRI_PARAMS.filter(p => p.srcId === srcId).forEach(p => {
+    localStorage.setItem('agriSrc_' + p.id, enabled ? 'true' : 'false');
+  });
+  applyAgriSourceFilter();
+  renderSourceList();
+}
+
+function toggleAgriSource(id, enabled) {
+  localStorage.setItem('agriSrc_' + id, enabled ? 'true' : 'false');
+  applyAgriSourceFilter();
+  renderSourceList();
+}
+
+function isCategoryCollapsed(key) {
+  return localStorage.getItem('agriCat_' + key) === '1';
+}
+
+function toggleCategory(key) {
+  const collapsed = isCategoryCollapsed(key);
+  localStorage.setItem('agriCat_' + key, collapsed ? '0' : '1');
+  const body = document.getElementById('agri-cat-' + key);
+  const arrow = document.getElementById('agri-arr-' + key);
+  if (body)  body.style.display  = collapsed ? '' : 'none';
+  if (arrow) arrow.textContent   = collapsed ? '▾' : '▸';
+}
+
+function renderSourceList() {
+  const list = document.getElementById('ws-source-list');
+  if (!list) return;
+  list.innerHTML = AGRI_SOURCES.map(src => {
+    const state   = getSourceState(src.id);
+    const count   = AGRI_PARAMS.filter(p => p.srcId === src.id).length;
+    const checked = state !== 'none';
+    return `<div class="agri-source-row">
+      <div class="agri-source-left">
+        <input type="checkbox" id="src-${src.id}" ${checked ? 'checked' : ''}
+          onchange="toggleSource('${src.id}', this.checked)"
+          style="cursor:pointer;accent-color:#00e5ff;flex-shrink:0;">
+        <label class="agri-source-label" for="src-${src.id}" style="cursor:pointer;">${src.label}</label>
+        <span class="agri-source-count">${count} param${count !== 1 ? 's' : ''}</span>
+      </div>
+      <button class="agri-source-arrow" onclick="openAgriSourceView('${src.id}')">›</button>
+    </div>`;
+  }).join('');
+  // Set indeterminate state (can't be done in HTML)
+  AGRI_SOURCES.forEach(src => {
+    const cb = document.getElementById('src-' + src.id);
+    if (cb) cb.indeterminate = getSourceState(src.id) === 'some';
+  });
+}
+
+function renderAgriSourceList(srcId) {
+  const list = document.getElementById('ws-agri-list');
+  if (!list) return;
+  const params = AGRI_PARAMS.filter(p => p.srcId === srcId);
+  const groups = [...new Set(params.map(p => p.group))];
+  const multiGroup = groups.length > 1;
+  let html = '';
+  groups.forEach(g => {
+    const gParams   = params.filter(p => p.group === g);
+    const gLabel    = gParams[0].groupLabel;
+    const catKey    = srcId + '_' + g;
+    const collapsed = isCategoryCollapsed(catKey);
+    if (multiGroup) {
+      html += `<div class="agri-category-header" onclick="toggleCategory('${catKey}')">
+        <span class="agri-cat-arrow" id="agri-arr-${catKey}">${collapsed ? '▸' : '▾'}</span>
+        ${gLabel}
+      </div>`;
+    }
+    html += `<div id="agri-cat-${catKey}" style="${collapsed && multiGroup ? 'display:none;' : ''}">`;
+    gParams.forEach(p => {
+      const checked = agriParamEnabled(p.id);
+      html += `<div class="agri-check-row">
+        <input type="checkbox" id="agri-${p.id}" ${checked ? 'checked' : ''}
+          onchange="toggleAgriSource('${p.id}', this.checked)"
+          style="cursor:pointer;accent-color:#00e5ff;flex-shrink:0;">
+        <label class="agri-check-label" for="agri-${p.id}">${p.label}</label>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  list.innerHTML = html;
+}
+
+function applyAgriSourceFilter() {
+  document.querySelectorAll('#dd-menu .dd-item').forEach(el => {
+    const id = el.getAttribute('data-id') || '';
+    const on = agriParamEnabled(id);
+    el.style.display = on ? '' : 'none';
+    if (!on && activeParams[id]) { delete activeParams[id]; }
+  });
+  document.querySelectorAll('#dd-menu .dd-group-lbl').forEach(lbl => {
+    const g = lbl.getAttribute('data-group');
+    if (!g) return;
+    const anyVisible = Array.from(document.querySelectorAll(`#dd-menu .dd-item[data-id^="${g}-"]`))
+      .some(el => el.style.display !== 'none');
+    lbl.style.display = anyVisible ? '' : 'none';
+  });
+  renderChips();
+}
+
+function setRefreshRate(ms) {
+  refreshMs = parseInt(ms);
+  localStorage.setItem('refreshMs', ms);
+  clearInterval(fetchInterval);
+  fetchInterval = setInterval(fetchData, refreshMs);
+}
+
+function initWebAppSettings() {
+  const wm = document.getElementById('ws-btn-metric');
+  const wi = document.getElementById('ws-btn-imperial');
+  if (wm) wm.classList.toggle('active', units === 'metric');
+  if (wi) wi.classList.toggle('active', units === 'imperial');
+  const sel = document.getElementById('ws-refresh');
+  if (sel) sel.value = String(refreshMs);
+  const asCb = document.getElementById('set-autosync');
+  if (asCb) asCb.checked = localStorage.getItem('autoSyncTime') !== 'false';
+  renderSourceList();
 }
 
 async function loadSettingsBoardList() {
@@ -1874,7 +2180,7 @@ async function loadSettingsBoardList() {
         '<span class="settings-board-row-badge local">THIS BOARD</span>' +
       '</div>' +
       '<span class="settings-board-row-arrow">›</span>';
-    localRow.onclick = () => openLocalBoardSettings(vData);
+    localRow.onclick = () => { selectBoardRow(localRow); openLocalBoardSettings(vData); };
     list.appendChild(localRow);
 
     // Peer rows
@@ -1891,7 +2197,7 @@ async function loadSettingsBoardList() {
           '<span class="settings-board-row-badge ' + badge + '">' + label + '</span>' +
         '</div>' +
         '<span class="settings-board-row-arrow">›</span>';
-      row.onclick = () => openPeerBoardSettings(p);
+      row.onclick = () => { selectBoardRow(row); openPeerBoardSettings(p); };
       list.appendChild(row);
     });
 
@@ -1907,13 +2213,9 @@ async function loadSettingsBoardList() {
 }
 
 function openLocalBoardSettings(data) {
-  document.getElementById('settings-main-view').style.display  = 'none';
-  document.getElementById('settings-board-view').style.display = '';
+  document.getElementById('settings-boards-empty').style.display  = 'none';
   document.getElementById('settings-local-content').style.display = '';
   document.getElementById('settings-peer-content').style.display  = 'none';
-  const name = data.apSSID || 'This Board';
-  document.getElementById('settings-board-nav-title').textContent = name;
-
   const boardName = (data.mdns || '').replace('.local', '');
   if (boardName) document.getElementById('set-boardname').value = boardName;
   if (data.networkName) document.getElementById('set-netname').value = data.networkName;
@@ -1932,13 +2234,10 @@ function openLocalBoardSettings(data) {
 }
 
 function openPeerBoardSettings(p) {
-  document.getElementById('settings-main-view').style.display  = 'none';
-  document.getElementById('settings-board-view').style.display = '';
+  document.getElementById('settings-boards-empty').style.display  = 'none';
   document.getElementById('settings-local-content').style.display = 'none';
   document.getElementById('settings-peer-content').style.display  = '';
   const name = p.boardName || p.mac;
-  document.getElementById('settings-board-nav-title').textContent = name;
-
   const seenS = Math.round((p.lastSeenMs || 0) / 1000);
   const seen  = seenS < 5 ? 'just now' : seenS + 's ago';
   document.getElementById('settings-peer-info').innerHTML =
@@ -1958,14 +2257,50 @@ function openPeerBoardSettings(p) {
   } else {
     linkWrap.style.display = 'none';
     noLinkEl.style.display = '';
+    const bName = escHtml(p.boardName || 'this board');
+    noLinkEl.innerHTML = `Connect to <strong style="color:var(--text);">${bName}</strong>'s WiFi hotspot to access its settings directly. If it's not visible in your available networks, short-press the Boot button on the board to open a 10-minute access window.`;
   }
 }
 
-function settingsBack() {
-  document.getElementById('settings-board-view').style.display = 'none';
-  document.getElementById('settings-main-view').style.display  = '';
-  settingsLoaded = false;   // refresh board list on next open
+function openAgriView() {
+  document.getElementById('settings-main-view').style.display = 'none';
+  document.getElementById('settings-agri-view').style.display = '';
+  renderSourceList();
+}
+
+function agriBack() {
+  document.getElementById('settings-agri-view').style.display = 'none';
+  document.getElementById('settings-main-view').style.display = '';
+}
+
+function openAgriSourceView(srcId) {
+  const src = AGRI_SOURCES.find(s => s.id === srcId);
+  document.getElementById('settings-agri-view').style.display        = 'none';
+  document.getElementById('settings-agri-source-view').style.display = '';
+  document.getElementById('agri-source-title').textContent = src ? src.label : srcId;
+  renderAgriSourceList(srcId);
+}
+
+function agriSourceBack() {
+  document.getElementById('settings-agri-source-view').style.display = 'none';
+  document.getElementById('settings-agri-view').style.display        = '';
+  renderSourceList();
+}
+
+function openBoardsView() {
+  document.getElementById('settings-main-view').style.display   = 'none';
+  document.getElementById('settings-boards-view').style.display = '';
   loadSettingsBoardList();
+}
+
+function boardsBack() {
+  document.getElementById('settings-boards-view').style.display = 'none';
+  document.getElementById('settings-main-view').style.display   = '';
+  document.getElementById('settings-local-content').style.display = 'none';
+  document.getElementById('settings-peer-content').style.display  = 'none';
+  document.getElementById('settings-boards-empty').style.display  = '';
+  document.querySelectorAll('#settings-board-list .settings-board-row')
+    .forEach(r => r.classList.remove('selected'));
 }
 
 async function setSoftAp(on) {
@@ -2019,7 +2354,6 @@ let _boardTimeRef = null;
 
 function initTimeSection(vd) {
   const autoSync = localStorage.getItem('autoSyncTime') !== 'false';
-  document.getElementById('set-autosync').checked = autoSync;
   const srcLabels = ['—', 'peer', 'manual', 'NTP'];
   const srcLabel  = srcLabels[vd.timeSyncSource] || '—';
   document.getElementById('set-lastsynced').textContent =

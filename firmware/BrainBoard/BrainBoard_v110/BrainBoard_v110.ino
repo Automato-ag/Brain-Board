@@ -97,6 +97,10 @@ uint8_t       softApMode      = 0;     // 0=auto (off when WiFi up), 1=always on
 bool          softApActive    = true;  // current SoftAP state
 unsigned long softApTempUntil = 0;     // millis() when temp window expires; 0=inactive
 
+// Setup page pending reboot (PRG pattern)
+bool          pendingReboot   = false;
+unsigned long pendingRebootMs = 0;
+
 // Channel seek (non-WiFi boards — find mesh channel non-blocking)
 volatile bool channelLocked     = false; // set by recv callback when matching beacon heard
 uint8_t       meshChannel       = 1;     // current locked channel
@@ -1084,6 +1088,29 @@ void handleSoftApPost() {
 // HTTP: /setup  GET
 // ─────────────────────────────────────────────
 void handleSetupGet() {
+  // PRG pattern: show success/countdown page after POST redirect
+  if (server.hasArg("saved")) {
+    String html = F(
+      "<!DOCTYPE html><html><head>"
+      "<meta charset='UTF-8'>"
+      "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+      "<title>Automato Setup</title>"
+      "<style>body{font-family:monospace;background:#090b0e;color:#dde3ee;margin:0;padding:24px;}"
+      "h1{color:#2ddf82;}p{color:#4a5568;font-size:0.8rem;}"
+      ".card{background:#10141a;border:1px solid #1a2030;border-radius:10px;padding:24px;max-width:400px;}"
+      "</style></head><body><h1>Saved!</h1><div class='card'>"
+      "<p>Connecting to your network now.</p>"
+      "<p style='margin-top:12px;color:#00e5ff;' id='msg'>Rebooting in 3 seconds...</p>"
+      "</div><script>var s=3,el=document.getElementById('msg');"
+      "var iv=setInterval(function(){s--;if(s>0){el.textContent='Rebooting in '+s+'...';}else"
+      "{el.textContent='Rebooting... reconnect to your WiFi.';clearInterval(iv);}},1000);</script>"
+      "</body></html>"
+    );
+    server.send(200, "text/html", html);
+    return;
+  }
+
+  // Setup form
   String html = F(
     "<!DOCTYPE html><html><head>"
     "<meta charset='UTF-8'>"
@@ -1098,7 +1125,13 @@ void handleSetupGet() {
     "input{width:100%;box-sizing:border-box;background:#090b0e;border:1px solid #1a2030;border-radius:6px;"
     "padding:10px;color:#dde3ee;font-family:monospace;font-size:0.85rem;outline:none;}"
     "input:focus{border-color:rgba(0,229,255,0.4);}"
-    "button{margin-top:20px;width:100%;padding:12px;background:#00e5ff;color:#000;border:none;"
+    ".pw-wrap{position:relative;}"
+    ".pw-wrap input{padding-right:52px;}"
+    ".pw-show{position:absolute;right:8px;top:50%;transform:translateY(-50%);"
+    "background:none;border:none;color:#4a5568;font-family:monospace;font-size:0.65rem;"
+    "cursor:pointer;padding:4px;margin-top:0;width:auto;}"
+    ".pw-show:hover{color:#dde3ee;}"
+    "button[type=submit]{margin-top:20px;width:100%;padding:12px;background:#00e5ff;color:#000;border:none;"
     "border-radius:6px;font-family:monospace;font-size:0.85rem;font-weight:700;cursor:pointer;}"
     ".note{font-size:0.6rem;color:#4a5568;margin-top:12px;line-height:1.7;}"
     "</style></head><body>"
@@ -1109,7 +1142,10 @@ void handleSetupGet() {
     "<label>WiFi Network Name (SSID)</label>"
     "<input type='text' name='ssid' placeholder='Your network name' required>"
     "<label>WiFi Password</label>"
-    "<input type='password' name='pass' placeholder='Your password'>"
+    "<div class='pw-wrap'>"
+    "<input type='password' name='pass' id='pw-pass' placeholder='Your password'>"
+    "<button type='button' class='pw-show' onclick='togglePw(\"pw-pass\",this)'>Show</button>"
+    "</div>"
     "<label>Board Name <span style='color:#4a5568'>(optional)</span></label>"
     "<input type='text' name='name' placeholder='e.g. greenhouse-north' maxlength='31'>"
     "<div class='note'>Sets your board address: boardname.local<br>"
@@ -1118,11 +1154,19 @@ void handleSetupGet() {
     "<label>Automato Network Name</label>"
     "<input type='text' name='netname' id='nname' placeholder='e.g. my-garden' maxlength='32'>"
     "<label>Network Password <span style='color:#4a5568'>(recommended)</span></label>"
-    "<input type='password' name='netpass' placeholder='Network password' maxlength='32'>"
+    "<div class='pw-wrap'>"
+    "<input type='password' name='netpass' id='pw-netpass' placeholder='Network password' maxlength='32'>"
+    "<button type='button' class='pw-show' onclick='togglePw(\"pw-netpass\",this)'>Show</button>"
+    "</div>"
     "<div class='note'>All boards with the same Network Name find each other automatically.</div>"
     "<button type='submit'>Save &amp; Connect</button>"
     "</form>"
     "<script>"
+    "function togglePw(id,btn){"
+    "  var el=document.getElementById(id);"
+    "  el.type=el.type==='password'?'text':'password';"
+    "  btn.textContent=el.type==='password'?'Show':'Hide';"
+    "}"
     "fetch('/version').then(r=>r.json()).then(d=>{"
     "  if(d.networkName)document.getElementById('nname').value=d.networkName;"
     "});"
@@ -1176,24 +1220,11 @@ void handleSetupPost() {
                 ssid.c_str(),
                 bname.length()   > 0 ? bname.c_str()   : "(default)",
                 netname.length() > 0 ? netname.c_str() : "(unchanged)");
-  String html = F(
-    "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
-    "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-    "<title>Automato Setup</title>"
-    "<style>body{font-family:monospace;background:#090b0e;color:#dde3ee;margin:0;padding:24px;}"
-    "h1{color:#2ddf82;}p{color:#4a5568;font-size:0.8rem;}"
-    ".card{background:#10141a;border:1px solid #1a2030;border-radius:10px;padding:24px;max-width:400px;}"
-    "</style></head><body><h1>Saved!</h1><div class='card'>"
-    "<p>Connecting to your network now.</p>"
-    "<p style='margin-top:12px;color:#00e5ff;' id='msg'>Rebooting in 3 seconds...</p>"
-    "</div><script>var s=3,el=document.getElementById('msg');"
-    "var iv=setInterval(function(){s--;if(s>0){el.textContent='Rebooting in '+s+'...';}else"
-    "{el.textContent='Rebooting... reconnect to your WiFi.';clearInterval(iv);}},1000);</script>"
-    "</body></html>"
-  );
-  server.send(200, "text/html", html);
-  delay(3000);
-  ESP.restart();
+  // PRG: redirect to GET page, reboot after 3s via loop()
+  server.sendHeader("Location", "/setup?saved=1", true);
+  server.send(303, "text/plain", "");
+  pendingReboot   = true;
+  pendingRebootMs = millis();
 }
 
 // ─────────────────────────────────────────────
@@ -1732,8 +1763,8 @@ void loop() {
   // ── Non-blocking channel seek (non-WiFi boards seeking mesh) ──
   if (!wifiConnected && !channelLocked) {
     const uint8_t seekChannels[] = {1, 6, 11, 2, 3, 4, 5, 7, 8, 9, 10};
-    if (softApTempUntil > 0) {
-      // Temp SoftAP window active — pause seek so AP stays on a stable channel
+    if (softApTempUntil > 0 || WiFi.softAPgetStationNum() > 0) {
+      // Pause seek: temp window active OR a client is connected to the SoftAP
       seekLastAdvanceMs = now;
     } else if (now - seekLastAdvanceMs >= 3000) {
       // Advance to next channel — restart AP on new channel to move the radio
@@ -1801,5 +1832,10 @@ void loop() {
   if (softApTempUntil > 0 && now >= softApTempUntil) {
     softApTempUntil = 0;
     if (softApMode == 0 && wifiConnected) disableSoftAP();
+  }
+
+  // ── Pending reboot (PRG after /setup POST) ────
+  if (pendingReboot && millis() - pendingRebootMs >= 3000) {
+    ESP.restart();
   }
 }

@@ -90,7 +90,7 @@ The Brain Board serves a complete webapp directly from its own flash memory — 
 | Dashboard | Live sensor readings, relay control, Agri Data sidebar | Live |
 | Devices | Local + peer I2C scan, user-defined device labels, address reference | Live |
 | Rules | Automation rule engine — local and cross-board conditions | v1.2 |
-| Settings | Board name, Network Name, password, WiFi reset | Live |
+| Settings | Display & Behavior (units, refresh rate, auto-sync), Agri Data Sources, Board Settings | Live |
 | Network | Mesh topology — board roles, peers, gateway address | Live |
 
 ### HTTP Endpoints
@@ -116,6 +116,8 @@ The Brain Board serves a complete webapp directly from its own flash memory — 
 ### Agri Data Sidebar
 
 All external API calls are browser-side — the board serves only the dashboard HTML and `/data` endpoint. No data leaves the board.
+
+Data sources can be enabled or disabled individually from **Settings → Agri Data Sources**.
 
 | Parameter Group | Source |
 |---|---|
