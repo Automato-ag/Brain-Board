@@ -1,6 +1,6 @@
 # Brain Board — Automato Ag
 
-Firmware and documentation for the **Automato Brain Board V2.0**, an ESP32-C6 based agricultural IoT node with onboard temperature, humidity, and light sensing, long-range ESP-NOW wireless, relay control, and a self-hosted web dashboard served directly from the board.
+Firmware and documentation for the **Automato Brain Board V2.0**, an ESP32-C6 based agricultural IoT node with onboard temperature, humidity, and light sensing, ESP-NOW mesh networking, relay control, and a self-hosted web dashboard served directly from the board.
 
 ---
 
@@ -14,7 +14,7 @@ Firmware and documentation for the **Automato Brain Board V2.0**, an ESP32-C6 ba
 | I2C Bus | SDA = IO6, SCL = IO7 |
 | Blue LED | IO23 |
 | Red LED | IO22 |
-| Boot Button | IO9 — hold 5s at startup to clear WiFi credentials |
+| Boot Button | IO9 — see Boot Button section below |
 | Qwiic/STEMMA QT | J2, J3 — GND / 3V3 / SDA / SCL |
 | Logic Level | 3.3V only — GPIO pins not 5V tolerant |
 
@@ -24,12 +24,13 @@ See [`hardware/Brain_Board_Reference.md`](hardware/Brain_Board_Reference.md) for
 
 ## Firmware
 
-### Current Versions
+### Current Version
 
-| Sketch | Version | Role |
-|---|---|---|
-| [`BrainBoard_Host_v081`](firmware/BrainBoard_Host/BrainBoard_Host_v081/) | **v0.8.1** | WiFi + WebServer + ESP-NOW receiver + Relay + I2C Scanner |
-| [`BrainBoard_Remote_v05`](firmware/BrainBoard_Remote/BrainBoard_Remote_v05/) | **v0.5** | ESP-NOW transmitter — sensor data + auto channel scan |
+| Sketch | Version |
+|---|---|
+| [`BrainBoard_v110`](firmware/BrainBoard/BrainBoard_v110/) | **v1.1.0** |
+
+All boards run the same unified firmware. There is no separate Host or Remote build — role (gateway, relay, isolated) is determined automatically at runtime based on WiFi connectivity.
 
 ### Required Libraries
 
@@ -39,82 +40,82 @@ Install all of the following via **Arduino Library Manager**:
 - `Adafruit TSL2591`
 - `Adafruit BusIO` *(installed automatically as dependency)*
 - `Adafruit Unified Sensor` *(installed automatically as dependency)*
-- `SparkFun TCA9534` *(Host only — for Qwiic GPIO relay control)*
+- `SparkFun TCA9534` *(for Qwiic GPIO relay control)*
 
 ### Arduino IDE Settings
 
 | Setting | Value |
 |---|---|
 | Board | ESP32C6 Dev Module |
-| USB CDC On Boot | **Enabled** — required, board crashes on Serial without this |
-| Partition Scheme | **Custom** — required, uses `partitions.csv` in sketch folder |
+| USB CDC On Boot | **Enabled** — required; board crashes on Serial without this |
+| Partition Scheme | **Custom** — required; uses `partitions.csv` in sketch folder |
 | Upload Speed | 921600 |
 
-> **Note:** USB CDC On Boot must be re-enabled each Arduino IDE session — it does not always persist between sessions.
+> **Note:** USB CDC on Boot must be re-enabled each Arduino IDE session — it does not always persist.
 
-### First Flash — Host
+### First Flash
 
-1. Open `BrainBoard_Host_v081/BrainBoard_Host_v081.ino` in Arduino IDE
+1. Open `BrainBoard_v110/BrainBoard_v110.ino` in Arduino IDE
 2. Set board settings as above
 3. **Sketch → Upload** — flash firmware
 4. **Tools → ESP32 Sketch Data Upload** — upload `data/` folder to LittleFS
 5. Open Serial Monitor at 115200 baud, press RESET
 6. Connect phone or laptop to the `Automato-XXXX` WiFi network
-7. Open `http://192.168.4.1/setup` — enter your WiFi credentials
-8. Board joins your network and is accessible at `http://automato-XXXX.local`
-
-### First Flash — Remote
-
-1. Open `BrainBoard_Remote_v05/BrainBoard_Remote_v05.ino`
-2. Set board settings as above (no LittleFS upload needed)
-3. Flash to Board 2 — it will auto-scan channels and find the Host automatically
-
-### Reset WiFi Credentials
-
-- Hold **Boot button (IO9)** for 5 seconds at startup, **or**
-- Use the **Reset WiFi** button in the dashboard
+7. Open `http://192.168.4.1/setup` — enter your Network Name, password, and WiFi credentials
+8. Board joins your network and is accessible at `http://networkname.local`
 
 ### OTA Updates (after first flash)
 
 - Navigate to `http://boardname.local/update` or `http://192.168.4.1/update`
 - Upload new firmware `.bin` or new LittleFS filesystem image
-- Firmware and webapp update independently
+- Firmware and webapp update independently — UI changes do not require reflashing firmware
+
+### Boot Button (IO9)
+
+| Action | Behavior |
+|---|---|
+| Hold 5s at **startup** | Clears all stored credentials and settings, then reboots |
+| Short press during **runtime** | Opens a 10-minute SoftAP access window — board stays accessible at `192.168.4.1` even when on WiFi (useful for field configuration) |
 
 ---
 
 ## Dashboard
 
-The Brain Board serves a complete webapp directly from its own flash memory — no internet or cloud required. Works in a field with no cell service.
+The Brain Board serves a complete webapp directly from its own flash memory — no internet, cloud, or external server required. Works in a field with no cell service.
 
 ### Tabs
 
 | Tab | Description | Status |
 |---|---|---|
 | Dashboard | Live sensor readings, relay control, Agri Data sidebar | Live |
-| I2C Scanner | Scan I2C bus, identify connected devices from 125+ device database | Live |
-| Devices | Board topology and attached hardware — all connected Automato boards | Planned v0.9+ |
-| Rules | Tier 3 offline rule engine — NVS-stored automation rules | Planned v0.9 |
-| Settings | Network, board name, and system settings | Planned |
+| Devices | Local + peer I2C scan, user-defined device labels, address reference | Live |
+| Rules | Automation rule engine — local and cross-board conditions | v1.2 |
+| Settings | Board name, Network Name, password, WiFi reset | Live |
+| Network | Mesh topology — board roles, peers, gateway address | Live |
 
 ### HTTP Endpoints
 
 | Endpoint | Method | Description |
 |---|---|---|
 | `/` | GET | Dashboard webapp (served from LittleFS) |
-| `/data` | GET | Sensor JSON + relay state |
-| `/version` | GET | Firmware + webapp version |
+| `/data` | GET | Sensor JSON + relay state + network info |
+| `/peers` | GET | Peer list JSON |
+| `/version` | GET | Firmware + webapp version, mDNS name, network name |
 | `/relay` | GET | Relay control (`?state=0\|1`, `?override=auto`) |
 | `/relay/status` | GET | Relay state JSON |
-| `/i2c-scan` | GET | I2C bus scan — returns `{"devices":[...]}` |
+| `/i2c-scan` | GET | Local I2C bus scan |
+| `/remote-scan` | POST/GET | Peer I2C scan via ESP-NOW |
+| `/time` | POST | Set board time from browser |
+| `/settings` | POST | Save board name / Network Name / password |
 | `/setup` | GET/POST | WiFi provisioning form |
-| `/wifi/reset` | POST | Clear credentials + reboot |
+| `/wifi/reset` | POST | Clear WiFi credentials + reboot |
 | `/update` | GET | OTA update UI |
 | `/update/firmware` | POST | Flash new firmware `.bin` |
 | `/update/filesystem` | POST | Flash new LittleFS image |
 
 ### Agri Data Sidebar
 
-All external API calls are browser-side — the board serves only the dashboard HTML and `/data` endpoint.
+All external API calls are browser-side — the board serves only the dashboard HTML and `/data` endpoint. No data leaves the board.
 
 | Parameter Group | Source |
 |---|---|
@@ -125,21 +126,30 @@ All external API calls are browser-side — the board serves only the dashboard 
 | Moon Phase, Moonrise, Moonset | Sunrise-Sunset.org |
 | PM2.5, Pollen | Open-Meteo Air Quality |
 
-### Relay Control
+---
+
+## ESP-NOW Mesh
+
+All Brain Boards on the same Network Name automatically form a mesh using ESP-NOW. No configuration required beyond giving boards the same Network Name in `/setup`.
+
+| Role | Condition | Behavior |
+|---|---|---|
+| Gateway | Board has active WiFi | Serves dashboard at `networkname.local`; syncs NTP time; relays peer sensor data |
+| Relay | No WiFi, peer discovered | Seeks mesh channel, locks on discovery, forwards sensor data to gateway via ESP-NOW |
+| Isolated | No WiFi, no peers found | Seeks continuously; accessible at `192.168.4.1` via its own SoftAP |
+
+**Channel seek:** Non-WiFi boards cycle through channels 1–11 (US), restarting their SoftAP on each channel to keep the radio active for ESP-NOW reception. Lock occurs on first matching MSG_HELLO beacon.
+
+**Plugin hooks:** Add a `custom.ino` file to the sketch folder to extend functionality without modifying core firmware. Available hooks: `customSetup()`, `customLoop()`, `customDataJSON()`.
+
+---
+
+## Relay Control
 
 - GPIO expander: SparkFun Qwiic GPIO (TCA9534) at I2C address 0x27, connected via Qwiic cable
 - Relay defaults **OFF** at all times — boot, sensor failure, I2C error, connectivity loss
 - Manual ON/OFF toggle in dashboard always overrides automation
-- Rule engine data structures stubbed and ready for v0.9
-
-### ESP-NOW Long Range
-
-- LR protocol enabled on STA interface after WiFi connects
-- Remote board auto-scans channels 1–13 at startup — no hardcoded channel required
-- Board 2 transmits sensor payload every 3 seconds
-- Stale detection at 15 seconds
-
----
+- Rule engine arriving in v1.2
 
 ## Relay Safety Contract
 
@@ -153,11 +163,12 @@ Relays default **OFF** under all failure conditions: boot, sensor failure, WiFi 
 
 | Version | Feature | Status |
 |---|---|---|
-| v0.8.1 | I2C Scanner tab + tab navigation shell | Complete |
-| v0.9 | Tier 3 offline rule engine — NVS rules, rule builder UI | Next |
-| v1.0 | Base firmware — stable, shippable, pre-built `.bin` | Target |
-
-See [`docs/Roadmap.md`](docs/Roadmap.md) for full architecture, three-tier automation design, platform roadmap, and multi-board networking plans.
+| v0.8.1 | Tab navigation shell, I2C Scanner tab, `/i2c-scan` endpoint | Complete |
+| v0.9 | Devices tab, remote I2C scan via ESP-NOW, Network Name in `/setup` | Complete |
+| v1.0 | Settings tab, Network tab stub, `POST /settings` endpoint | Complete |
+| v1.1 | ESP-NOW mesh — unified firmware, MSG_HELLO beacon, dynamic gateway, `networkname.local`, 1-hop relay, live Network tab, plugin hooks | Complete |
+| v1.2 | Rules tab — firmware rule engine, LittleFS persistence, local + peer conditions, recipe database | Next |
+| v1.3 | Multi-hop relay, routing tables, cross-board rules | Planned |
 
 ---
 
@@ -170,25 +181,15 @@ Brain-Board/
 ├── LICENSE
 ├── .gitignore
 ├── firmware/
-│   ├── BrainBoard_Host/
-│   │   ├── BrainBoard_Host_v081/        <- current
-│   │   │   ├── BrainBoard_Host_v081.ino
-│   │   │   ├── partitions.csv
-│   │   │   └── data/
-│   │   │       ├── index.html
-│   │   │       └── version.txt
-│   │   ├── BrainBoard_Host_v08/
-│   │   │   ├── BrainBoard_Host_v08.ino
-│   │   │   ├── partitions.csv
-│   │   │   └── data/
-│   │   │       ├── index.html
-│   │   │       └── version.txt
-│   │   ├── BrainBoard_Host_v0.6.1.ino
-│   │   └── BrainBoard_Host_v0.6.ino
-│   └── BrainBoard_Remote/
-│       ├── BrainBoard_Remote_v05/       <- current
-│       │   └── BrainBoard_Remote_v05.ino
-│       └── BrainBoard_Remote_v0.4.ino
+│   ├── BrainBoard/
+│   │   └── BrainBoard_v110/            <- current (v1.1)
+│   │       ├── BrainBoard_v110.ino
+│   │       ├── partitions.csv
+│   │       └── data/
+│   │           ├── index.html
+│   │           └── version.txt
+│   ├── BrainBoard_Host/                <- legacy (pre-v1.1)
+│   └── BrainBoard_Remote/              <- legacy (pre-v1.1, retired)
 ├── docs/
 │   ├── Roadmap.md
 │   ├── QuickStart.md
@@ -202,9 +203,6 @@ Brain-Board/
 │   ├── Brain_Board_Reference.md
 │   └── kicad/
 │       └── Brain_Board_V2.0/
-│           ├── Automato_V2.0.kicad_sch
-│           ├── Automato_V2.0.kicad_pcb
-│           └── Automato_V2.0.kicad_pro
 └── tools/
     └── I2C_Scanner/
         └── I2C_Scanner.ino
