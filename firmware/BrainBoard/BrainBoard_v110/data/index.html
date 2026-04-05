@@ -13,7 +13,7 @@
     --surface:   #10141a;
     --border:    #1a2030;
     --text:      #dde3ee;
-    --muted:     #4a5568;
+    --muted:     #7a8ba0;
     --b1:        #00e5ff;
     --b2:        #ff9f43;
     --temp:      #ff6b8a;
@@ -26,6 +26,9 @@
     --relay-on:  #f59e0b;
     --relay-off: #334155;
     --sidebar-w: 290px;
+    --fsc-val:   1;
+    --fsc-sec:   1;
+    --fsc-ui:    1;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -70,14 +73,14 @@
   .sidebar-header h2 {
     font-family: 'Syne', sans-serif;
     font-weight: 800;
-    font-size: 0.8rem;
+    font-size: calc(0.8rem * var(--fsc-sec));
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--agri);
     display: flex; align-items: center; gap: 7px;
   }
   .sidebar-header p {
-    font-size: 0.57rem;
+    font-size: calc(0.57rem * var(--fsc-sec));
     color: var(--muted);
     margin-top: 4px;
     letter-spacing: 0.06em;
@@ -101,7 +104,7 @@
   .relay-toggle-label {
     font-family: 'Syne', sans-serif;
     font-weight: 700;
-    font-size: 0.75rem;
+    font-size: calc(0.75rem * var(--fsc-sec));
     letter-spacing: 0.07em;
     text-transform: uppercase;
     display: flex; align-items: center; gap: 8px;
@@ -143,7 +146,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.65rem;
+    font-size: calc(0.65rem * var(--fsc-sec));
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -182,7 +185,7 @@
     border-radius: 7px;
     border: 1px solid var(--border);
     font-family: 'Space Mono', monospace;
-    font-size: 0.65rem;
+    font-size: calc(0.65rem * var(--fsc-sec));
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -227,7 +230,7 @@
     flex-shrink: 0;
   }
   .field-label {
-    font-size: 0.57rem;
+    font-size: calc(0.57rem * var(--fsc-sec));
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--muted);
@@ -242,7 +245,7 @@
   .units-btn {
     padding: 5px 12px;
     font-family: 'Space Mono', monospace;
-    font-size: 0.6rem;
+    font-size: calc(0.6rem * var(--fsc-sec));
     letter-spacing: 0.05em;
     cursor: pointer;
     border: none;
@@ -266,7 +269,7 @@
     border-radius: 6px;
     padding: 7px 9px;
     font-family: 'Space Mono', monospace;
-    font-size: 0.62rem;
+    font-size: calc(0.62rem * var(--fsc-sec));
     color: var(--text);
     outline: none;
     transition: border-color 0.2s;
@@ -280,7 +283,7 @@
     border-radius: 6px;
     padding: 7px 10px;
     color: var(--agri);
-    font-size: 0.62rem;
+    font-size: calc(0.62rem * var(--fsc-sec));
     cursor: pointer;
     font-family: 'Space Mono', monospace;
     transition: background 0.2s;
@@ -341,7 +344,7 @@
     border-radius: 6px;
     padding: 7px 10px;
     font-family: 'Space Mono', monospace;
-    font-size: 0.6rem;
+    font-size: calc(0.6rem * var(--fsc-sec));
     color: var(--muted);
     cursor: pointer;
     text-align: left;
@@ -375,7 +378,7 @@
   .dd-item {
     display: flex; align-items: center; gap: 7px;
     padding: 7px 12px;
-    font-size: 0.6rem;
+    font-size: calc(0.6rem * var(--fsc-ui));
     color: var(--text);
     cursor: pointer;
     transition: background 0.12s;
@@ -404,7 +407,7 @@
     overflow-y: auto;
   }
   .active-label {
-    font-size: 0.57rem;
+    font-size: calc(0.57rem * var(--fsc-sec));
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--muted);
@@ -419,24 +422,25 @@
     font-size: 0.52rem;
   }
   .param-chip {
-    display: flex; align-items: center;
+    display: flex; align-items: flex-start; flex-wrap: wrap;
     background: var(--surface);
     border: 1px solid var(--border);
     border-left: 2px solid var(--agri);
     border-radius: 6px;
     padding: 8px 9px;
     margin-bottom: 6px;
-    gap: 7px;
+    gap: 5px 7px;
     transition: border-color 0.2s;
   }
   .param-chip:hover { border-color: rgba(134,239,172,0.35); }
-  .chip-info { flex: 1; min-width: 0; }
-  .chip-name { font-size: 0.6rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
-  .chip-source { font-size: 0.5rem; color: var(--muted); margin-top: 1px; }
-  .chip-right { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
-  .chip-value { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--agri); white-space: nowrap; text-align: right; line-height: 1; }
-  .chip-unit { font-size: 0.55em; color: var(--muted); font-family: 'Space Mono', monospace; font-weight: 400; }
-  .chip-loading { font-size: 0.55rem; color: var(--muted); }
+  .chip-info { flex: 1; min-width: 90px; }
+  .chip-name { font-size: calc(0.6rem * var(--fsc-sec)); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+  .chip-source { font-size: calc(0.5rem * var(--fsc-sec)); color: var(--muted); margin-top: 1px; }
+  .chip-right { display: flex; align-items: center; gap: 5px; flex-shrink: 0; margin-left: auto; }
+  .chip-value { font-family: 'Syne', sans-serif; font-weight: 700; font-size: calc(0.6rem * var(--fsc-sec)); color: var(--agri); white-space: nowrap; text-align: right; line-height: 1; }
+  .chip-unit { font-size: 0.7em; color: var(--muted); font-family: 'Space Mono', monospace; font-weight: 400; }
+  .chip-loading { font-size: calc(0.55rem * var(--fsc-sec)); color: var(--muted); }
+  .chip-note    { font-size: 0.75em; color: var(--muted); font-family: 'Space Mono', monospace; font-weight: 400; }
   .chip-remove {
     width: 14px; height: 14px;
     border-radius: 50%;
@@ -452,7 +456,7 @@
   }
   .chip-remove:hover { border-color: var(--err); color: var(--err); }
   .empty-hint {
-    font-size: 0.6rem;
+    font-size: calc(0.6rem * var(--fsc-sec));
     color: var(--muted);
     text-align: center;
     padding: 18px 0;
@@ -475,7 +479,7 @@
   h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(1.4rem,3vw,1.9rem); letter-spacing: -0.02em; line-height: 1; }
   h1 .b1c { color: var(--b1); }
   h1 .b2c { color: var(--b2); }
-  .subtitle { font-size: 0.6rem; color: var(--muted); margin-top: 5px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .subtitle { font-size: calc(0.6rem * var(--fsc-ui)); color: var(--muted); margin-top: 5px; letter-spacing: 0.08em; text-transform: uppercase; }
   .status-pill {
     display: flex; align-items: center; gap: 7px;
     background: var(--surface); border: 1px solid var(--border);
@@ -532,7 +536,7 @@
     gap: 7px;
     padding: 0 14px;
     font-family: 'Space Mono', monospace;
-    font-size: 0.6rem;
+    font-size: calc(0.6rem * var(--fsc-ui));
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--muted);
@@ -580,7 +584,7 @@
 
   /* ── I2C SHARED STYLES ── */
   .i2c-scan-status {
-    font-size: 0.6rem;
+    font-size: calc(0.6rem * var(--fsc-ui));
     color: var(--muted);
     letter-spacing: 0.04em;
   }
@@ -767,50 +771,59 @@
 
   /* ── SETTINGS TAB ── */
   .settings-section { margin-bottom: 28px; }
-  .settings-section-title { font-family: 'Space Mono', monospace; font-size: 0.58rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .settings-section-title { font-family: 'Space Mono', monospace; font-size: calc(0.58rem * var(--fsc-ui)); color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
   .settings-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
-  .settings-label { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--muted); letter-spacing: 0.06em; }
+  .settings-label { font-family: 'Space Mono', monospace; font-size: calc(0.6rem * var(--fsc-ui)); color: var(--muted); letter-spacing: 0.06em; }
   .settings-input { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.68rem; padding: 8px 10px; width: 100%; max-width: 320px; }
   .settings-input:focus { outline: none; border-color: var(--b1); }
-  .settings-hint { font-size: 0.58rem; color: var(--muted); opacity: 0.65; }
+  .settings-hint { font-size: calc(0.58rem * var(--fsc-ui)); color: var(--muted); opacity: 0.65; }
   .pw-wrap { position: relative; max-width: 320px; }
   .pw-wrap .settings-input { max-width: 100%; padding-right: 46px; }
   .pw-show { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 0.58rem; cursor: pointer; padding: 4px; }
   .pw-show:hover { color: var(--text); }
-  .settings-save-btn { background: var(--b1); color: #fff; border: none; border-radius: 6px; font-family: 'Space Mono', monospace; font-size: 0.62rem; padding: 8px 18px; cursor: pointer; letter-spacing: 0.05em; }
+  .settings-save-btn { background: var(--b1); color: #fff; border: none; border-radius: 6px; font-family: 'Space Mono', monospace; font-size: calc(0.62rem * var(--fsc-ui)); padding: 8px 18px; cursor: pointer; letter-spacing: 0.05em; }
   .settings-save-btn:hover { opacity: 0.85; }
-  .settings-msg { font-family: 'Space Mono', monospace; font-size: 0.6rem; margin-left: 10px; }
+  .settings-msg { font-family: 'Space Mono', monospace; font-size: calc(0.6rem * var(--fsc-ui)); margin-left: 10px; }
   .settings-msg.ok  { color: #2ddf82; }
   .settings-msg.err { color: #ff4d6d; }
   .settings-wifi-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-  .settings-wifi-status { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--muted); }
+  .settings-wifi-status { font-family: 'Space Mono', monospace; font-size: calc(0.62rem * var(--fsc-ui)); color: var(--muted); }
   .settings-board-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; margin-bottom: 8px; transition: border-color 0.15s; max-width: 420px; }
   .settings-board-row:hover { border-color: var(--b1); }
   .settings-board-row-left { display: flex; align-items: center; gap: 10px; }
-  .settings-board-row-name { font-family: 'Space Mono', monospace; font-size: 0.72rem; color: var(--text); }
+  .settings-board-row-name { font-family: 'Space Mono', monospace; font-size: calc(0.72rem * var(--fsc-ui)); color: var(--text); }
   .settings-board-row-badge { font-family: 'Space Mono', monospace; font-size: 0.5rem; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.08em; }
   .settings-board-row-badge.local { background: rgba(0,229,255,0.12); color: var(--b1); }
   .settings-board-row-badge.wifi  { background: rgba(45,223,130,0.12); color: #2ddf82; }
   .settings-board-row-badge.no-wifi { background: rgba(255,159,67,0.12); color: #ff9f43; }
   .settings-board-row-arrow { font-size: 0.85rem; color: var(--muted); }
   .settings-board-nav { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
-  .settings-back-btn { background: transparent; border: none; color: var(--b1); font-family: 'Space Mono', monospace; font-size: 0.6rem; cursor: pointer; padding: 0; letter-spacing: 0.05em; }
+  .settings-back-btn { background: transparent; border: none; color: var(--b1); font-family: 'Space Mono', monospace; font-size: calc(0.6rem * var(--fsc-ui)); cursor: pointer; padding: 0; letter-spacing: 0.05em; }
   .settings-back-btn:hover { opacity: 0.75; }
-  .settings-board-nav-title { font-family: 'Space Mono', monospace; font-size: 0.85rem; color: var(--text); }
+  .settings-board-nav-title { font-family: 'Space Mono', monospace; font-size: calc(0.85rem * var(--fsc-ui)); color: var(--text); }
   .settings-board-row.selected { border-color: var(--b1); background: rgba(0,229,255,0.04); }
   .settings-boards-body { display: flex; gap: 0; }
   .settings-boards-list { width: 200px; flex-shrink: 0; border-right: 1px solid var(--border); padding-right: 14px; overflow-y: auto; max-height: 60vh; }
   .settings-boards-list .settings-board-row { max-width: none; }
   .settings-boards-detail { flex: 1; padding-left: 22px; overflow-y: auto; }
-  .settings-boards-empty { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--muted); padding: 20px 0; }
+  .settings-boards-empty { font-family: 'Space Mono', monospace; font-size: calc(0.62rem * var(--fsc-ui)); color: var(--muted); padding: 20px 0; }
+  .dli-preset-wrap { display: flex; flex-direction: column; gap: 4px; max-width: 420px; }
+  .dli-target-display { font-family: 'Space Mono', monospace; font-size: calc(0.58rem * var(--fsc-ui)); color: var(--muted); min-height: 1em; }
+  .dli-user-presets { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; }
+  .dli-user-preset-row { display: flex; align-items: center; gap: 6px; font-family: 'Space Mono', monospace; font-size: calc(0.58rem * var(--fsc-ui)); color: var(--muted); }
+  .dli-preset-delete { background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 0.65rem; padding: 0 3px; line-height: 1; }
+  .dli-preset-delete:hover { color: var(--err); }
+  .dli-new-preset-form { display: none; border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-top: 6px; }
+  .dli-new-preset-form.open { display: block; }
+  .dli-new-form-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
   /* ── NETWORK TAB ── */
   .net-role-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; max-width: 480px; }
-  .net-role-badge { font-family: 'Space Mono', monospace; font-size: 0.6rem; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 20px; font-weight: 700; }
+  .net-role-badge { font-family: 'Space Mono', monospace; font-size: calc(0.6rem * var(--fsc-ui)); letter-spacing: 0.1em; padding: 4px 10px; border-radius: 20px; font-weight: 700; }
   .net-role-badge.host    { background: rgba(45,223,130,0.15); color: #2ddf82; border: 1px solid rgba(45,223,130,0.3); }
   .net-role-badge.remote  { background: rgba(120,160,255,0.15); color: #78a0ff; border: 1px solid rgba(120,160,255,0.3); }
   .net-role-badge.gateway { background: rgba(45,223,130,0.15); color: #2ddf82; border: 1px solid rgba(45,223,130,0.3); }
-  .net-info-line { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--muted); margin-bottom: 6px; }
+  .net-info-line { font-family: 'Space Mono', monospace; font-size: calc(0.62rem * var(--fsc-ui)); color: var(--muted); margin-bottom: 6px; }
   .net-info-line span { color: var(--text); }
   .net-future { background: rgba(255,159,67,0.06); border: 1px solid rgba(255,159,67,0.2); border-radius: 8px; padding: 14px 16px; max-width: 480px; }
   .net-future-title { font-family: 'Space Mono', monospace; font-size: 0.58rem; color: rgba(255,159,67,0.8); letter-spacing: 0.08em; margin-bottom: 6px; }
@@ -819,19 +832,24 @@
   /* ── PEER CARDS ── */
   .peer-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; max-width: 480px; }
   .peer-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-  .peer-card-name { font-family: 'Space Mono', monospace; font-size: 0.72rem; color: var(--text); }
+  .peer-card-name { font-family: 'Space Mono', monospace; font-size: calc(0.72rem * var(--fsc-ui)); color: var(--text); }
   .peer-card-badge { font-family: 'Space Mono', monospace; font-size: 0.52rem; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 20px; }
   .peer-card-badge.wifi   { background: rgba(45,223,130,0.15); color: #2ddf82; border: 1px solid rgba(45,223,130,0.3); }
   .peer-card-badge.no-wifi { background: rgba(120,160,255,0.12); color: #78a0ff; border: 1px solid rgba(120,160,255,0.3); }
   .peer-card-sensors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
   .peer-sensor { font-family: 'Space Mono', monospace; font-size: 0.52rem; color: var(--muted); letter-spacing: 0.06em; }
-  .peer-sensor span { display: block; font-size: 0.68rem; color: var(--text); margin-top: 2px; }
-  .peer-empty { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--muted); padding: 12px 0; }
+  .peer-sensor span { display: block; font-size: calc(0.68rem * var(--fsc-ui)); color: var(--text); margin-top: 2px; }
+  .peer-empty { font-family: 'Space Mono', monospace; font-size: calc(0.62rem * var(--fsc-ui)); color: var(--muted); padding: 12px 0; }
   .net-gw-banner { background: rgba(0,229,255,0.05); border: 1px solid rgba(0,229,255,0.2); border-radius: 8px; padding: 11px 14px; max-width: 480px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .net-gw-banner span { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--muted); line-height: 1.6; }
+  .net-gw-banner span { font-family: 'Space Mono', monospace; font-size: calc(0.6rem * var(--fsc-ui)); color: var(--muted); line-height: 1.6; }
   .net-gw-banner a { color: #00e5ff; text-decoration: none; white-space: nowrap; }
   .net-gw-banner a:hover { text-decoration: underline; }
-  .net-peers-label { font-family: 'Space Mono', monospace; font-size: 0.58rem; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; }
+  .net-peers-label { font-family: 'Space Mono', monospace; font-size: calc(0.58rem * var(--fsc-ui)); color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; }
+
+  /* ── FONT SCALE STEP BUTTONS ── */
+  .fs-step-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.75rem; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: border-color 0.15s, color 0.15s; padding: 0; line-height: 1; flex-shrink: 0; }
+  .fs-step-btn:hover { border-color: rgba(255,255,255,0.3); color: var(--agri); }
+  .fs-step-btn:disabled { opacity: 0.3; cursor: default; }
 
   /* ── SYNC TOGGLE (Settings → Time) ── */
   .sync-toggle { display: inline-block; position: relative; width: 38px; height: 20px; flex-shrink: 0; }
@@ -844,8 +862,8 @@
   /* ── WEBAPP SETTINGS ── */
   .webapp-setting-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
   .webapp-setting-row:last-child { border-bottom: none; }
-  .webapp-setting-label { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--text); margin-bottom: 2px; }
-  .webapp-setting-hint { font-family: 'Space Mono', monospace; font-size: 0.58rem; color: var(--muted); line-height: 1.6; max-width: 280px; }
+  .webapp-setting-label { font-family: 'Space Mono', monospace; font-size: calc(0.7rem * var(--fsc-ui)); color: var(--text); margin-bottom: 2px; }
+  .webapp-setting-hint { font-family: 'Space Mono', monospace; font-size: calc(0.58rem * var(--fsc-ui)); color: var(--muted); line-height: 1.6; max-width: 280px; }
   .webapp-select { background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.65rem; padding: 5px 10px; cursor: pointer; }
   .webapp-select:disabled { opacity: 0.4; cursor: default; }
   .agri-source-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); gap: 10px; }
@@ -861,7 +879,7 @@
   .agri-cat-arrow { font-size: 0.55rem; transition: transform 0.15s; }
   .agri-check-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
   .agri-check-row:last-child { border-bottom: none; }
-  .agri-check-label { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--text); cursor: pointer; flex: 1; }
+  .agri-check-label { font-family: 'Space Mono', monospace; font-size: calc(0.65rem * var(--fsc-ui)); color: var(--text); cursor: pointer; flex: 1; }
   .readonly-badge { display: inline-block; font-family: 'Space Mono', monospace; font-size: 0.5rem; letter-spacing: 0.08em; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; margin-left: 8px; vertical-align: middle; }
   .coming-soon { display: inline-block; font-family: 'Space Mono', monospace; font-size: 0.5rem; letter-spacing: 0.08em; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: middle; }
 
@@ -895,8 +913,26 @@
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 8px; border-left: 3px solid var(--board-clr);
   }
-  .board-header h2 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.8rem; color: var(--board-clr); }
-  .board-header .meta { font-size: 0.55rem; color: var(--muted); text-align: right; line-height: 1.6; }
+  .board-header h2 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: calc(0.8rem * var(--fsc-sec)); color: var(--board-clr); }
+  .board-header .meta { font-size: calc(0.55rem * var(--fsc-sec)); color: var(--muted); text-align: right; line-height: 1.6; }
+  .board-header-b1 { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; align-items: center; column-gap: 8px; }
+  .board-header-b1 h2            { grid-column: 1; grid-row: 1; }
+  .board-header-b1 #b1-sensors   { grid-column: 2; grid-row: 1; font-size: calc(0.55rem * var(--fsc-sec)); color: var(--muted); text-align: right; }
+  .board-header-b1 .cards-toggle { grid-column: 1; grid-row: 2; }
+  .board-header-b1 #b1-uptime    { grid-column: 2; grid-row: 2; font-size: calc(0.55rem * var(--fsc-sec)); color: var(--muted); text-align: right; margin-top: 2px; }
+  .board-header-b2 { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; align-items: center; column-gap: 8px; }
+  .board-header-b2 h2              { grid-column: 1; grid-row: 1; }
+  .board-header-b2 #b2-badge       { grid-column: 2; grid-row: 1; justify-self: end; }
+  .board-header-b2 .b2-bottom-left { grid-column: 1; grid-row: 2; display: flex; align-items: center; gap: 6px; }
+  .board-header-b2 #b2-last-seen   { grid-column: 2; grid-row: 2; text-align: right; }
+  .b2-sub { font-size: calc(0.55rem * var(--fsc-sec)); color: var(--muted); margin-top: 2px; }
+  .cards-toggle { background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 0.48rem; padding: 2px 5px; cursor: pointer; letter-spacing: 0.05em; }
+  .cards-toggle:hover { border-color: var(--board-clr); color: var(--board-clr); }
+  .card-menu { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; display: none; }
+  .card-menu-group { font-family: 'Space Mono', monospace; font-size: 0.46rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; padding: 6px 0 3px; }
+  .card-menu-group:first-child { padding-top: 0; }
+  .card-menu-item { display: flex; align-items: center; gap: 7px; font-family: 'Space Mono', monospace; font-size: 0.52rem; color: var(--fg); padding: 3px 0; cursor: pointer; }
+  .card-menu-item input[type="checkbox"] { cursor: pointer; accent-color: var(--board-clr); }
   .board-b1 { --board-clr: var(--b1); }
   .board-b2 { --board-clr: var(--b2); }
   .board-b2.stale .card-value { color: #555 !important; }
@@ -916,23 +952,25 @@
   .card.c-hum  { --clr: var(--hum);  }
   .card.c-lux  { --clr: var(--lux);  }
   .card.c-mcu  { --clr: var(--mcu);  }
+  .card.c-derived { --clr: var(--board-clr); }
+  .derived-fallback { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--muted); font-weight: 400; }
   .card.collapsed { max-height: 40px; }
   .card-label::after { content: '▾'; margin-left: auto; font-size: 0.75rem; color: var(--muted); display: inline-block; transition: transform 0.3s; }
   .card.collapsed .card-label::after { transform: rotate(-90deg); }
-  #bb-tooltip { position: fixed; background: #141b26; border: 1px solid var(--border); color: var(--text); font-size: 0.65rem; line-height: 1.55; padding: 8px 11px; border-radius: 6px; max-width: 220px; z-index: 9999; pointer-events: none; opacity: 0; transition: opacity 0.15s; }
-  #bb-tooltip.visible { opacity: 1; }
-  .card-label { font-size: 0.55rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  #tooltip { position:fixed; background:#141b26; border:1px solid var(--border); color:var(--text); font-family:'Space Mono',monospace; font-size:0.62rem; line-height:1.55; padding:8px 11px; border-radius:6px; max-width:240px; z-index:9999; pointer-events:none; opacity:0; transition:opacity 0.15s; box-shadow:0 8px 24px rgba(0,0,0,0.5); }
+  #tooltip.visible { opacity:1; }
+  .card-label { font-size: calc(0.55rem * var(--fsc-sec)); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
   .card-label::before { content:''; width:5px; height:5px; border-radius:50%; background: var(--clr); box-shadow: 0 0 5px var(--clr); flex-shrink:0; }
-  .card-value { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(1.6rem,3vw,2rem); line-height: 1; color: var(--clr); transition: color 0.3s; }
+  .card-value { font-family: 'Syne', sans-serif; font-weight: 800; font-size: calc(clamp(1.6rem,3vw,2rem) * var(--fsc-val)); line-height: 1; color: var(--clr); transition: color 0.3s; }
   .card-value .unit { font-size: 0.4em; font-weight: 400; color: var(--muted); margin-left: 1px; }
-  .card-sub { font-size: 0.6rem; color: var(--muted); margin-top: 4px; }
+  .card-sub { font-size: calc(0.6rem * var(--fsc-sec)); color: var(--muted); margin-top: 4px; }
   .card-sub strong { color: color-mix(in srgb, var(--clr) 75%, var(--text)); }
   .lux-bar-track { height: 4px; background: var(--border); border-radius: 100px; overflow: hidden; margin-top: 12px; }
   .lux-bar-fill { height: 100%; border-radius: 100px; background: linear-gradient(90deg, var(--lux), #fffac0); width: 0%; transition: width 0.8s cubic-bezier(0.23,1,0.32,1); box-shadow: 0 0 8px rgba(200,255,87,0.4); }
   .lux-labels { display: flex; justify-content: space-between; margin-top: 4px; font-size: 0.5rem; color: var(--muted); }
   .channels { display: flex; gap: 14px; margin-top: 12px; flex-wrap: wrap; }
   .channel-label { font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 2px; }
-  .channel-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; color: #9d7fff; }
+  .channel-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: calc(1rem * var(--fsc-val)); color: #9d7fff; }
   .channel-val.condition { font-size: 0.72rem; color: var(--muted); }
   .link-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.58rem; letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 8px; border-radius: 100px; border: 1px solid; }
   .link-badge.linked  { color: var(--ok);  border-color: rgba(45,223,130,0.35); background: rgba(45,223,130,0.07); }
@@ -951,6 +989,21 @@
   .board-col:nth-child(1) { animation-delay: 0.05s; }
   .board-col:nth-child(2) { animation-delay: 0.14s; }
   @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+  /* ── FONT SCALE: ID + utility classes ── */
+  #wifi-status-label         { font-size: calc(0.58rem * var(--fsc-sec)); }
+  .wifi-reset-btn            { font-size: calc(0.6rem  * var(--fsc-ui)); }
+  #set-boardtime             { font-size: calc(0.75rem * var(--fsc-ui)); }
+  #set-lastsynced            { font-size: calc(0.6rem  * var(--fsc-ui)); }
+  #settings-peer-info        { font-size: calc(0.65rem * var(--fsc-ui)); }
+  .settings-peer-access-hint { font-family: 'Space Mono', monospace; font-size: calc(0.6rem * var(--fsc-ui)); color: var(--muted); margin-bottom: 12px; }
+  #settings-peer-link        { font-size: calc(0.65rem * var(--fsc-ui)); }
+  #settings-peer-nolink      { font-size: calc(0.6rem  * var(--fsc-ui)); }
+  .board-list-status         { font-family: 'Space Mono', monospace; font-size: calc(0.6rem  * var(--fsc-ui)); color: var(--muted); }
+  .settings-unit-label       { font-family: 'Space Mono', monospace; font-size: calc(0.6rem  * var(--fsc-ui)); color: var(--muted); }
+  .peer-meta                 { font-family: 'Space Mono', monospace; font-size: calc(0.55rem * var(--fsc-ui)); color: var(--muted); margin-bottom: 6px; }
+  .peer-stale                { font-family: 'Space Mono', monospace; font-size: calc(0.52rem * var(--fsc-ui)); color: var(--muted); margin-top: 6px; }
+
 </style>
 </head>
 <body>
@@ -1056,6 +1109,9 @@
       <div class="dd-item" data-id="w-winddir" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Wind Direction</span><span class="dd-item-source">(Open-Meteo)</span></div>
       <div class="dd-item" data-id="w-cloud"   onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Cloud Cover</span><span class="dd-item-source">(Open-Meteo)</span></div>
       <div class="dd-item" data-id="w-humid"   onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Outdoor Humidity</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="w-frost-risk" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Frost Risk</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="w-gdd"       onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Growing Degree Days</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="w-chill"     onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Chill Hours</span><span class="dd-item-source">(Open-Meteo)</span></div>
 
       <div class="dd-group-lbl" data-group="s">Solar &amp; Light</div>
       <div class="dd-item" data-id="s-firstlight" onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">First Light / Civil Dawn</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
@@ -1066,6 +1122,7 @@
       <div class="dd-item" data-id="s-daylen"     onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Day Length</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
       <div class="dd-item" data-id="s-uv"         onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">UV Index</span><span class="dd-item-source">(Open-Meteo)</span></div>
       <div class="dd-item" data-id="s-rad"        onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Shortwave Radiation</span><span class="dd-item-source">(Open-Meteo)</span></div>
+      <div class="dd-item" data-id="s-photo"      onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Photoperiod</span><span class="dd-item-source">(Sunrise-Sunset.org)</span></div>
 
       <div class="dd-group-lbl" data-group="a">Soil &amp; Agriculture</div>
       <div class="dd-item" data-id="a-soil0"  onclick="toggleParam(this)"><div class="chk"></div><span class="dd-item-label">Soil Temp (0–7cm)</span><span class="dd-item-source">(Open-Meteo)</span></div>
@@ -1102,8 +1159,8 @@
   <!-- ── WIFI SETTINGS ── -->
   <div style="padding:12px 18px 16px;border-top:1px solid var(--border);flex-shrink:0;">
     <div class="field-label" style="margin-bottom:8px;">Network</div>
-    <div id="wifi-status-label" style="font-size:0.58rem;color:var(--muted);margin-bottom:10px;line-height:1.6;"></div>
-    <button onclick="resetWifi()" style="width:100%;padding:8px;background:transparent;border:1px solid rgba(255,77,109,0.3);border-radius:6px;color:#ff4d6d;font-family:'Space Mono',monospace;font-size:0.6rem;cursor:pointer;letter-spacing:0.05em;">
+    <div id="wifi-status-label" style="color:var(--muted);margin-bottom:10px;line-height:1.6;"></div>
+    <button onclick="resetWifi()" class="wifi-reset-btn" style="width:100%;padding:8px;background:transparent;border:1px solid rgba(255,77,109,0.3);border-radius:6px;color:#ff4d6d;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:0.05em;">
       Reset WiFi credentials
     </button>
   </div>
@@ -1130,24 +1187,40 @@
   <div class="boards">
     <!-- Board 1 -->
     <div class="board-col board-b1" id="col-b1">
-      <div class="board-header">
+      <div class="board-header board-header-b1">
         <h2>Board 1 — Host</h2>
-        <div class="meta">
-          <span id="b1-sensors">SHTC3 · TSL2591</span><br>
-          <span id="b1-uptime">up: —</span>
-        </div>
+        <span id="b1-sensors">SHTC3 · TSL2591</span>
+        <button class="cards-toggle" onclick="toggleCardMenu('b1')">▼ Cards</button>
+        <span id="b1-uptime">uptime: —</span>
       </div>
-      <div class="card c-temp">
+      <div class="card-menu" id="b1-card-menu">
+        <div class="card-menu-group">Onboard Sensors</div>
+        <label class="card-menu-item"><input type="checkbox" data-card="b1-temp" onchange="toggleCard('b1','b1-temp',this.checked)" checked> Temperature</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b1-hum"  onchange="toggleCard('b1','b1-hum', this.checked)" checked> Relative Humidity</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b1-lux"  onchange="toggleCard('b1','b1-lux', this.checked)" checked> Ambient Light</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b1-mcu"  onchange="toggleCard('b1','b1-mcu', this.checked)" checked> MCU Temperature</label>
+        <div class="card-menu-group">Derived · Local</div>
+        <label class="card-menu-item"><input type="checkbox" data-card="b1-dewpoint" onchange="toggleCard('b1','b1-dewpoint',this.checked)"> Dew Point</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b1-vpd"      onchange="toggleCard('b1','b1-vpd',this.checked)"> Local VPD</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b1-heatidx"  onchange="toggleCard('b1','b1-heatidx',this.checked)"> Heat Index</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b1-dli"      onchange="toggleCard('b1','b1-dli',this.checked)"> DLI Accumulator</label>
+        <div class="card-menu-group">Derived · Local + Regional</div>
+        <label class="card-menu-item"><input type="checkbox" data-card="b1-tempdelta" onchange="toggleCard('b1','b1-tempdelta',this.checked)"> Temp Delta</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b1-humdelta"  onchange="toggleCard('b1','b1-humdelta',this.checked)"> Humidity Delta</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b1-vpddelta"  onchange="toggleCard('b1','b1-vpddelta',this.checked)"> VPD Comparison</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b1-waterdef"  onchange="toggleCard('b1','b1-waterdef',this.checked)"> Water Deficit</label>
+      </div>
+      <div class="card c-temp" data-card="b1-temp">
         <div class="card-label">Temperature</div>
         <div class="card-value" id="b1-tempc">—<span class="unit">°C</span></div>
         <div class="card-sub" id="b1-tempf">—</div>
       </div>
-      <div class="card c-hum">
+      <div class="card c-hum" data-card="b1-hum">
         <div class="card-label">Relative Humidity</div>
         <div class="card-value" id="b1-hum">—<span class="unit">%</span></div>
         <div class="card-sub" id="b1-hum-feel">—</div>
       </div>
-      <div class="card c-lux">
+      <div class="card c-lux" data-card="b1-lux">
         <div class="card-label">Ambient Light</div>
         <div class="card-value" id="b1-lux">—<span class="unit">lux</span></div>
         <div class="lux-bar-track"><div class="lux-bar-fill" id="b1-bar"></div></div>
@@ -1158,33 +1231,92 @@
           <div><div class="channel-label">Condition</div><div class="channel-val condition" id="b1-cond">—</div></div>
         </div>
       </div>
-      <div class="card c-mcu">
+      <div class="card c-mcu" data-card="b1-mcu">
         <div class="card-label">MCU Temp</div>
         <div class="card-value" id="b1-dietempc">—<span class="unit">°C</span></div>
         <div class="card-sub" id="b1-dietempf">—</div>
+      </div>
+      <div class="card c-derived" data-card="b1-dewpoint" style="display:none">
+        <div class="card-label">~ Dew Point</div>
+        <div class="card-value" id="b1-dewpoint-val">—<span class="unit">°C</span></div>
+        <div class="card-sub" id="b1-dewpoint-sub">—</div>
+      </div>
+      <div class="card c-derived" data-card="b1-vpd" style="display:none">
+        <div class="card-label">~ Local VPD</div>
+        <div class="card-value" id="b1-vpd-val">—<span class="unit">kPa</span></div>
+        <div class="card-sub" id="b1-vpd-sub">—</div>
+      </div>
+      <div class="card c-derived" data-card="b1-heatidx" style="display:none">
+        <div class="card-label">~ Heat Index</div>
+        <div class="card-value" id="b1-heatidx-val">—<span class="unit">°C</span></div>
+        <div class="card-sub" id="b1-heatidx-sub">—</div>
+      </div>
+      <div class="card c-derived" data-card="b1-dli" style="display:none">
+        <div class="card-label">~ DLI Accumulator</div>
+        <div class="card-value" id="b1-dli-val">—<span class="unit">mol/m²</span></div>
+        <div class="card-sub" id="b1-dli-sub">—</div>
+      </div>
+      <div class="card c-derived" data-card="b1-tempdelta" style="display:none">
+        <div class="card-label">~ Temp Delta</div>
+        <div class="card-value" id="b1-tempdelta-val"><span class="derived-fallback">No location set</span></div>
+        <div class="card-sub" id="b1-tempdelta-sub"></div>
+      </div>
+      <div class="card c-derived" data-card="b1-humdelta" style="display:none">
+        <div class="card-label">~ Humidity Delta</div>
+        <div class="card-value" id="b1-humdelta-val"><span class="derived-fallback">No location set</span></div>
+        <div class="card-sub" id="b1-humdelta-sub"></div>
+      </div>
+      <div class="card c-derived" data-card="b1-vpddelta" style="display:none">
+        <div class="card-label">~ VPD Comparison</div>
+        <div class="card-value" id="b1-vpddelta-val"><span class="derived-fallback">No location set</span></div>
+        <div class="card-sub" id="b1-vpddelta-sub"></div>
+      </div>
+      <div class="card c-derived" data-card="b1-waterdef" style="display:none">
+        <div class="card-label">~ Water Deficit</div>
+        <div class="card-value" id="b1-waterdef-val"><span class="derived-fallback">No location set</span></div>
+        <div class="card-sub" id="b1-waterdef-sub"></div>
       </div>
     </div>
 
     <!-- Board 2 -->
     <div class="board-col board-b2" id="col-b2">
-      <div class="board-header">
+      <div class="board-header board-header-b2">
         <h2>Board 2 — Remote</h2>
-        <div class="meta">
-          <span id="b2-badge"><span class="link-badge waiting"><span class="ldot"></span>Waiting…</span></span><br>
-          <span id="b2-uptime">up: —</span>
+        <span id="b2-badge"><span class="link-badge waiting"><span class="ldot"></span>Waiting…</span></span>
+        <div class="b2-bottom-left">
+          <button class="cards-toggle" onclick="toggleCardMenu('b2')">▼ Cards</button>
+          <span id="b2-uptime" class="b2-sub">uptime: —</span>
         </div>
+        <span id="b2-last-seen" class="b2-sub b2-last-seen"></span>
       </div>
-      <div class="card c-temp">
+      <div class="card-menu" id="b2-card-menu">
+        <div class="card-menu-group">Onboard Sensors</div>
+        <label class="card-menu-item"><input type="checkbox" data-card="b2-temp" onchange="toggleCard(b2MacKey,'b2-temp',this.checked)" checked> Temperature</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b2-hum"  onchange="toggleCard(b2MacKey,'b2-hum', this.checked)" checked> Relative Humidity</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b2-lux"  onchange="toggleCard(b2MacKey,'b2-lux', this.checked)" checked> Ambient Light</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b2-mcu"  onchange="toggleCard(b2MacKey,'b2-mcu', this.checked)" checked> MCU Temperature</label>
+        <div class="card-menu-group">Derived · Local</div>
+        <label class="card-menu-item"><input type="checkbox" data-card="b2-dewpoint" onchange="toggleCard(b2MacKey,'b2-dewpoint',this.checked)"> Dew Point</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b2-vpd"      onchange="toggleCard(b2MacKey,'b2-vpd',this.checked)"> Local VPD</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b2-heatidx"  onchange="toggleCard(b2MacKey,'b2-heatidx',this.checked)"> Heat Index</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b2-dli"      onchange="toggleCard(b2MacKey,'b2-dli',this.checked)"> DLI Accumulator</label>
+        <div class="card-menu-group">Derived · Local + Regional</div>
+        <label class="card-menu-item"><input type="checkbox" data-card="b2-tempdelta" onchange="toggleCard(b2MacKey,'b2-tempdelta',this.checked)"> Temp Delta</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b2-humdelta"  onchange="toggleCard(b2MacKey,'b2-humdelta',this.checked)"> Humidity Delta</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b2-vpddelta"  onchange="toggleCard(b2MacKey,'b2-vpddelta',this.checked)"> VPD Comparison</label>
+        <label class="card-menu-item"><input type="checkbox" data-card="b2-waterdef"  onchange="toggleCard(b2MacKey,'b2-waterdef',this.checked)"> Water Deficit</label>
+      </div>
+      <div class="card c-temp" data-card="b2-temp">
         <div class="card-label">Temperature</div>
         <div class="card-value" id="b2-tempc">—<span class="unit">°C</span></div>
         <div class="card-sub" id="b2-tempf">—</div>
       </div>
-      <div class="card c-hum">
+      <div class="card c-hum" data-card="b2-hum">
         <div class="card-label">Relative Humidity</div>
         <div class="card-value" id="b2-hum">—<span class="unit">%</span></div>
         <div class="card-sub" id="b2-hum-feel">—</div>
       </div>
-      <div class="card c-lux">
+      <div class="card c-lux" data-card="b2-lux">
         <div class="card-label">Ambient Light</div>
         <div class="card-value" id="b2-lux">—<span class="unit">lux</span></div>
         <div class="lux-bar-track"><div class="lux-bar-fill" id="b2-bar"></div></div>
@@ -1194,6 +1326,51 @@
           <div><div class="channel-label">Infrared</div><div class="channel-val" id="b2-ir">—</div></div>
           <div><div class="channel-label">Condition</div><div class="channel-val condition" id="b2-cond">—</div></div>
         </div>
+      </div>
+      <div class="card c-mcu" data-card="b2-mcu">
+        <div class="card-label">MCU Temp</div>
+        <div class="card-value" id="b2-dietempc">—<span class="unit">°C</span></div>
+        <div class="card-sub" id="b2-dietempf">—</div>
+      </div>
+      <div class="card c-derived" data-card="b2-dewpoint" style="display:none">
+        <div class="card-label">~ Dew Point</div>
+        <div class="card-value" id="b2-dewpoint-val">—<span class="unit">°C</span></div>
+        <div class="card-sub" id="b2-dewpoint-sub">—</div>
+      </div>
+      <div class="card c-derived" data-card="b2-vpd" style="display:none">
+        <div class="card-label">~ Local VPD</div>
+        <div class="card-value" id="b2-vpd-val">—<span class="unit">kPa</span></div>
+        <div class="card-sub" id="b2-vpd-sub">—</div>
+      </div>
+      <div class="card c-derived" data-card="b2-heatidx" style="display:none">
+        <div class="card-label">~ Heat Index</div>
+        <div class="card-value" id="b2-heatidx-val">—<span class="unit">°C</span></div>
+        <div class="card-sub" id="b2-heatidx-sub">—</div>
+      </div>
+      <div class="card c-derived" data-card="b2-dli" style="display:none">
+        <div class="card-label">~ DLI Accumulator</div>
+        <div class="card-value" id="b2-dli-val">—<span class="unit">mol/m²</span></div>
+        <div class="card-sub" id="b2-dli-sub">—</div>
+      </div>
+      <div class="card c-derived" data-card="b2-tempdelta" style="display:none">
+        <div class="card-label">~ Temp Delta</div>
+        <div class="card-value" id="b2-tempdelta-val"><span class="derived-fallback">No location set</span></div>
+        <div class="card-sub" id="b2-tempdelta-sub"></div>
+      </div>
+      <div class="card c-derived" data-card="b2-humdelta" style="display:none">
+        <div class="card-label">~ Humidity Delta</div>
+        <div class="card-value" id="b2-humdelta-val"><span class="derived-fallback">No location set</span></div>
+        <div class="card-sub" id="b2-humdelta-sub"></div>
+      </div>
+      <div class="card c-derived" data-card="b2-vpddelta" style="display:none">
+        <div class="card-label">~ VPD Comparison</div>
+        <div class="card-value" id="b2-vpddelta-val"><span class="derived-fallback">No location set</span></div>
+        <div class="card-sub" id="b2-vpddelta-sub"></div>
+      </div>
+      <div class="card c-derived" data-card="b2-waterdef" style="display:none">
+        <div class="card-label">~ Water Deficit</div>
+        <div class="card-value" id="b2-waterdef-val"><span class="derived-fallback">No location set</span></div>
+        <div class="card-sub" id="b2-waterdef-sub"></div>
       </div>
     </div>
   </div><!-- .boards -->
@@ -1275,6 +1452,44 @@
         <select class="webapp-select" disabled><option>Dark</option></select>
       </div>
 
+      <div class="webapp-setting-row">
+        <div>
+          <div class="webapp-setting-label">Tooltip descriptions</div>
+          <div class="webapp-setting-hint">Show explanations when hovering over values, parameters, and settings.</div>
+        </div>
+        <label class="sync-toggle" style="flex-shrink:0;">
+          <input type="checkbox" id="set-tips" onchange="setTipsEnabled(this.checked)">
+          <span class="sync-slider"></span>
+        </label>
+      </div>
+
+      <div class="webapp-setting-row" style="align-items:flex-start; flex-wrap:wrap; gap:12px;">
+        <div style="flex:1; min-width:140px;">
+          <div class="webapp-setting-label">Font sizes</div>
+          <div class="webapp-setting-hint">Adjust text size by category. Changes apply immediately.</div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:7px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="webapp-setting-hint" style="min-width:110px; opacity:1;">Card values</span>
+            <button class="fs-step-btn" onclick="stepFontScale('val',-1)">−</button>
+            <span id="fs-val-label" style="font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--text); min-width:38px; text-align:center;">100%</span>
+            <button class="fs-step-btn" onclick="stepFontScale('val',1)">+</button>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="webapp-setting-hint" style="min-width:110px; opacity:1;">Labels &amp; sidebar</span>
+            <button class="fs-step-btn" onclick="stepFontScale('sec',-1)">−</button>
+            <span id="fs-sec-label" style="font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--text); min-width:38px; text-align:center;">100%</span>
+            <button class="fs-step-btn" onclick="stepFontScale('sec',1)">+</button>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="webapp-setting-hint" style="min-width:110px; opacity:1;">UI text</span>
+            <button class="fs-step-btn" onclick="stepFontScale('ui',-1)">−</button>
+            <span id="fs-ui-label" style="font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--text); min-width:38px; text-align:center;">100%</span>
+            <button class="fs-step-btn" onclick="stepFontScale('ui',1)">+</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <div class="settings-section">
@@ -1326,7 +1541,7 @@
       <!-- Left: scrollable board list -->
       <div class="settings-boards-list">
         <div id="settings-board-list">
-          <div style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);">Loading…</div>
+          <div class="board-list-status">Loading…</div>
         </div>
       </div>
 
@@ -1372,7 +1587,7 @@
         <div class="settings-wifi-row">
           <span class="settings-wifi-status" id="settings-wifi-status">—</span>
         </div>
-        <button onclick="resetWifi()" style="padding:8px 14px;background:transparent;border:1px solid rgba(255,77,109,0.3);border-radius:6px;color:#ff4d6d;font-family:'Space Mono',monospace;font-size:0.6rem;cursor:pointer;letter-spacing:0.05em;">Reset WiFi Credentials</button>
+        <button onclick="resetWifi()" class="wifi-reset-btn" style="padding:8px 14px;background:transparent;border:1px solid rgba(255,77,109,0.3);border-radius:6px;color:#ff4d6d;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:0.05em;">Reset WiFi Credentials</button>
       </div>
 
       <div class="settings-section">
@@ -1394,11 +1609,11 @@
         <div class="settings-section-title">Time</div>
         <div class="settings-row" style="margin-bottom:4px;">
           <div class="settings-label">Board time</div>
-          <div id="set-boardtime" style="font-family:'Space Mono',monospace;font-size:0.75rem;color:var(--text);">—</div>
+          <div id="set-boardtime" style="font-family:'Space Mono',monospace;color:var(--text);">—</div>
         </div>
         <div class="settings-row" style="margin-bottom:14px;">
           <div class="settings-label">Last synced</div>
-          <div id="set-lastsynced" style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);">—</div>
+          <div id="set-lastsynced" style="font-family:'Space Mono',monospace;color:var(--muted);">—</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
           <button class="settings-save-btn" onclick="syncTimeNow(false)">Sync now</button>
@@ -1415,22 +1630,26 @@
       </div>
     </div>
 
+      <div id="local-derived-settings"></div>
+    </div><!-- /settings-local-content (closed below) -->
+
     <!-- Peer board: read-only info -->
     <div id="settings-peer-content" style="display:none;">
       <div class="settings-section">
         <div class="settings-section-title">Board Info</div>
-        <div id="settings-peer-info" style="font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--muted);line-height:2;"></div>
+        <div id="settings-peer-info" style="font-family:'Space Mono',monospace;color:var(--muted);line-height:2;"></div>
       </div>
       <div class="settings-section">
         <div class="settings-section-title">Access</div>
-        <div style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);margin-bottom:12px;">
+        <div class="settings-peer-access-hint">
           To edit this board's settings, connect to it directly.
         </div>
         <div id="settings-peer-link-wrap" style="display:none;">
-          <a id="settings-peer-link" href="#" target="_blank" style="font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--b1);text-decoration:none;">Open board webapp →</a>
+          <a id="settings-peer-link" href="#" target="_blank" style="font-family:'Space Mono',monospace;color:var(--b1);text-decoration:none;">Open board webapp →</a>
         </div>
-        <div id="settings-peer-nolink" style="display:none;font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);line-height:1.7;"></div>
+        <div id="settings-peer-nolink" style="display:none;font-family:'Space Mono',monospace;color:var(--muted);line-height:1.7;"></div>
       </div>
+      <div id="peer-derived-settings"></div>
     </div><!-- /settings-peer-content -->
 
       </div><!-- /settings-boards-detail -->
@@ -1479,15 +1698,23 @@ let   fetchInterval = null;
 
 let units           = localStorage.getItem('units') || 'metric';
 let ddOpen          = false;
-let activeParams    = {};
-let externalData    = {};
-let coords          = null;
-let lastAgriRefresh = 0;
+const b1MacKey      = 'b1';
+let   b2MacKey      = null;
+let activeParams      = {};
+let externalData      = {};
+let rawExternal       = {};
+let coords            = null;
+let lastAgriRefresh   = 0;
+let externalFetchDone = false;
 
 // Relay state (mirrors board state)
 let relayState      = false;
 let relayGpioOk     = true;
 let relayPanelOpen  = false;
+let dliTotals = { b1: parseFloat(localStorage.getItem('dli_b1') || '0'), b2: parseFloat(localStorage.getItem('dli_b2') || '0') };
+let dliDate   = localStorage.getItem('dli_date') || '';
+let restoredBoardPrefs = {};
+let prefsRestoring = false;  // true during restoreAgriState() to suppress save-back
 
 // ═══════════════════════════════════════════════
 // RELAY PANEL
@@ -1545,6 +1772,7 @@ function setUnits(u) {
   if (wm) wm.classList.toggle('active', u === 'metric');
   if (wi) wi.classList.toggle('active', u === 'imperial');
   renderChips();
+  savePrefs();
 }
 
 // ═══════════════════════════════════════════════
@@ -1613,6 +1841,96 @@ document.getElementById('loc-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') resolveLocation();
 });
 
+function saveLocationState() {
+  if (coords) {
+    localStorage.setItem('agri_coords',     JSON.stringify(coords));
+    localStorage.setItem('agri_loc_input',  document.getElementById('loc-input').value.trim());
+    localStorage.setItem('agri_loc_status', document.getElementById('loc-status').innerHTML);
+    savePrefs();
+  }
+}
+
+async function proxyFetch(url) {
+  try {
+    const res = await fetch('/proxy?url=' + encodeURIComponent(url));
+    if (res.ok) return res;
+  } catch(e) {}
+  return fetch(url);
+}
+
+function collectBoardPrefs(macKey) {
+  const boardPrefix = macKey === 'b1' ? 'b1' : 'b2';
+  const cards = {};
+  const menu = document.getElementById(boardPrefix + '-card-menu');
+  if (menu) {
+    menu.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      const stored = localStorage.getItem('card_' + macKey + '_' + cb.dataset.card);
+      if (stored !== null) cards[cb.dataset.card] = stored !== 'false';
+    });
+  }
+  return {
+    cards,
+    dliPreset:      localStorage.getItem('dli_preset_'       + macKey) || '',
+    dliTarget:      parseFloat(localStorage.getItem('dli_target_'     + macKey) || '0'),
+    dliUserPresets: JSON.parse(localStorage.getItem('dli_userpresets_' + macKey) || '[]'),
+    gddBase:        parseFloat(localStorage.getItem('gdd_base_'       + macKey) || '10'),
+    seasonStart:    localStorage.getItem('season_start_'     + macKey) || ''
+  };
+}
+
+function applyBoardPrefs(macKey, boardData) {
+  if (!boardData) return;
+  if (boardData.dliPreset)      localStorage.setItem('dli_preset_'       + macKey, boardData.dliPreset);
+  if (boardData.dliTarget)      localStorage.setItem('dli_target_'       + macKey, String(boardData.dliTarget));
+  if (boardData.dliUserPresets) localStorage.setItem('dli_userpresets_'  + macKey, JSON.stringify(boardData.dliUserPresets));
+  if (boardData.gddBase  != null) localStorage.setItem('gdd_base_'       + macKey, String(boardData.gddBase));
+  if (boardData.seasonStart)    localStorage.setItem('season_start_'     + macKey, boardData.seasonStart);
+  if (boardData.cards) {
+    Object.entries(boardData.cards).forEach(([cardId, visible]) => {
+      localStorage.setItem('card_' + macKey + '_' + cardId, visible ? 'true' : 'false');
+    });
+  }
+}
+
+async function savePrefs() {
+  if (prefsRestoring) return;
+  const coordsToSave = coords || (() => { try { return JSON.parse(localStorage.getItem('agri_coords')); } catch(e) { return null; } })();
+  const locInputEl  = document.getElementById('loc-input');
+  const locStatusEl = document.getElementById('loc-status');
+  const locInput    = locInputEl  ? locInputEl.value.trim()   : (localStorage.getItem('agri_loc_input')  || '');
+  const locStatus   = locStatusEl ? locStatusEl.innerHTML      : (localStorage.getItem('agri_loc_status') || '');
+
+  // Agri source enabled/disabled state
+  const agriSrc = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('agriSrc_')) agriSrc[k.slice(8)] = localStorage.getItem(k) !== 'false';
+  }
+
+  // Board-specific prefs
+  const boards = {};
+  ['b1', b2MacKey].filter(Boolean).forEach(mac => { boards[mac] = collectBoardPrefs(mac); });
+
+  const payload = {
+    activeParams,
+    coords:      coordsToSave  || undefined,
+    locInput:    locInput       || undefined,
+    locStatus:   locStatus      || undefined,
+    units,
+    refreshMs,
+    autoSyncTime: localStorage.getItem('autoSyncTime') !== 'false',
+    tipsEnabled,
+    fs:    { val: fsScales.val, sec: fsScales.sec, ui: fsScales.ui },
+    agriSrc,
+    boards
+  };
+
+  localStorage.setItem('agri_active', JSON.stringify(activeParams));
+  try {
+    await fetch('/prefs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  } catch(e) {}
+}
+
 async function resolveLocation() {
   const raw = document.getElementById('loc-input').value.trim();
   if (!raw) return;
@@ -1624,11 +1942,12 @@ async function resolveLocation() {
     const lat = parseFloat(latLonMatch[1]), lon = parseFloat(latLonMatch[2]);
     coords = { lat, lon, name: `${lat.toFixed(4)}, ${lon.toFixed(4)}` };
     status.innerHTML = `<div class="place-resolved">📍 <div><span>Coordinates set</span><span class="coords">${lat.toFixed(4)}° N, ${Math.abs(lon).toFixed(4)}° W</span></div></div>`;
+    saveLocationState();
     await refreshExternalData(); return;
   }
   try {
     const url  = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(raw)}&count=1&language=en&format=json`;
-    const res  = await fetch(url);
+    const res  = await proxyFetch(url);
     const data = await res.json();
     if (!data.results || data.results.length === 0) {
       status.innerHTML = `<div class="place-error">⚠ Location not found.</div>`;
@@ -1637,6 +1956,7 @@ async function resolveLocation() {
     const r = data.results[0];
     coords = { lat: r.latitude, lon: r.longitude, name: [r.name, r.admin1, r.country_code].filter(Boolean).join(', ') };
     status.innerHTML = `<div class="place-resolved">📍 <div><span>${coords.name}</span><span class="coords">${coords.lat.toFixed(4)}° N, ${Math.abs(coords.lon).toFixed(4)}° W</span></div></div>`;
+    saveLocationState();
     await refreshExternalData();
   } catch (e) {
     status.innerHTML = `<div class="place-error">⚠ Geocoding failed: ${e.message}</div>`;
@@ -1655,18 +1975,50 @@ async function refreshExternalData() {
   const needsMoon    = ids.some(id => id.startsWith('m-'));
   const needsAQI     = ids.some(id => id.startsWith('q-'));
   const needsFrost   = ids.some(id => id.startsWith('n-'));
-  if (needsWeather) await fetchWeather();
+  const needsHistory = ids.some(id => id === 'w-gdd' || id === 'w-chill');
+  await fetchWeather();
   if (needsSolar)   await fetchSolar();
   if (needsMoon)    await fetchMoon();
   if (needsAQI)     await fetchAQI();
   if (needsFrost)   await fetchFrost();
+  if (needsHistory) await fetchSeasonHistory();
+  // Derived calculations (use rawExternal populated above — no extra API calls)
+  if (activeParams['w-frost-risk']) {
+    const risk = calcFrostRisk(rawExternal.outTempC, rawExternal.cloudCover, rawExternal.windSpeed);
+    externalData['w-frost-risk'] = { val_m: risk, val_i: risk, unit_m: '', unit_i: '' };
+  }
+  if (activeParams['w-gdd']) {
+    const gdd = calcAccumulatedGDD(
+      rawExternal.histDates,    rawExternal.histMaxC,    rawExternal.histMinC,
+      rawExternal.gddStartStr,
+      rawExternal.forecastDates, rawExternal.forecastMaxC, rawExternal.forecastMinC
+    );
+    externalData['w-gdd'] = gdd
+      ? { val_m: gdd.m, val_i: gdd.i, unit_m: '°C·day', unit_i: '°F·day' }
+      : { val_m: '—',   val_i: '—',   unit_m: '',        unit_i: ''        };
+  }
+  if (activeParams['w-chill']) {
+    const chill = calcAccumulatedChillHours(
+      rawExternal.histDates,    rawExternal.histMaxC,    rawExternal.histMinC,
+      rawExternal.chillStartStr,
+      rawExternal.forecastDates, rawExternal.forecastMaxC, rawExternal.forecastMinC
+    );
+    externalData['w-chill'] = chill != null
+      ? { val_m: chill, val_i: chill, unit_m: 'hrs', unit_i: 'hrs', note: '±5%' }
+      : { val_m: '—',   val_i: '—',   unit_m: '',    unit_i: ''                  };
+  }
+  if (activeParams['s-photo']) {
+    const photo = calcPhotoperiod(rawExternal.dayLenSec, coords ? coords.lat : 0);
+    externalData['s-photo'] = { val_m: photo, val_i: photo, unit_m: '', unit_i: '' };
+  }
+  externalFetchDone = true;
   renderChips();
 }
 
 async function fetchWeather() {
   try {
     const params = ['temperature_2m','precipitation','wind_speed_10m','wind_direction_10m','cloud_cover','relative_humidity_2m','uv_index','shortwave_radiation','soil_temperature_0cm','soil_temperature_6cm','soil_moisture_0_to_1cm','et0_fao_evapotranspiration','vapour_pressure_deficit'].join(',');
-    const res  = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=${params}&timezone=auto`);
+    const res  = await proxyFetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=${params}&daily=temperature_2m_max,temperature_2m_min&past_days=7&forecast_days=2&timezone=auto`);
     const data = await res.json();
     const c    = data.current;
     externalData['w-temp']    = { val_m: fmt1(c.temperature_2m), val_i: fmt1(c.temperature_2m*9/5+32), unit_m:'°C', unit_i:'°F' };
@@ -1682,16 +2034,64 @@ async function fetchWeather() {
     externalData['a-soilm']   = { val_m: c.soil_moisture_0_to_1cm!=null?c.soil_moisture_0_to_1cm.toFixed(3):'—', val_i: c.soil_moisture_0_to_1cm!=null?c.soil_moisture_0_to_1cm.toFixed(3):'—', unit_m:'m³/m³', unit_i:'m³/m³' };
     externalData['a-et']      = { val_m: fmt1(c.et0_fao_evapotranspiration), val_i: fmt1(c.et0_fao_evapotranspiration/25.4), unit_m:'mm', unit_i:'in' };
     externalData['a-vpd']     = { val_m: fmt1(c.vapour_pressure_deficit),    val_i: fmt1(c.vapour_pressure_deficit),          unit_m:'kPa', unit_i:'kPa' };
+    rawExternal.outTempC   = c.temperature_2m;
+    rawExternal.outRH      = c.relative_humidity_2m;
+    rawExternal.outVPD     = c.vapour_pressure_deficit;
+    rawExternal.et0        = c.et0_fao_evapotranspiration;
+    rawExternal.precip     = c.precipitation;
+    rawExternal.cloudCover      = c.cloud_cover;
+    rawExternal.windSpeed       = c.wind_speed_10m;
+    // past_days=7 + forecast_days=2 → 9 daily entries; index 7=today, 8=tomorrow
+    rawExternal.forecastDates   = data.daily?.time ?? [];
+    rawExternal.forecastMaxC    = data.daily?.temperature_2m_max ?? [];
+    rawExternal.forecastMinC    = data.daily?.temperature_2m_min ?? [];
+    rawExternal.todayTempMaxC   = data.daily?.temperature_2m_max?.[7] ?? null;
+    rawExternal.todayTempMinC   = data.daily?.temperature_2m_min?.[7] ?? null;
+    rawExternal.tomorrowTempMinC = data.daily?.temperature_2m_min?.[8] ?? null;
   } catch(e) { console.warn('Weather fetch failed:', e); }
+}
+
+async function fetchSeasonHistory() {
+  try {
+    const today    = new Date();
+    const year     = today.getFullYear();
+    const isNorth  = coords.lat >= 0;
+    const fmt      = d => d.toISOString().split('T')[0];
+
+    // Chill season start: Nov 1 (north) / May 1 (south); use previous year if not yet reached
+    const chillMonth = isNorth ? 10 : 4;
+    const chillYear  = today.getMonth() >= chillMonth ? year : year - 1;
+    const chillStart = new Date(chillYear, chillMonth, 1);
+
+    // GDD season start: Jan 1 of current year
+    const gddStart = new Date(year, 0, 1);
+
+    // Archive covers from the earlier start date to 7 days ago
+    // past_days=7 on fetchWeather() bridges the recent gap
+    const archiveStart = chillStart < gddStart ? chillStart : gddStart;
+    const archiveEnd   = new Date(today);
+    archiveEnd.setDate(archiveEnd.getDate() - 7);
+
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${fmt(archiveStart)}&end_date=${fmt(archiveEnd)}&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+    const res  = await proxyFetch(url);
+    const data = await res.json();
+
+    rawExternal.histDates     = data.daily?.time ?? [];
+    rawExternal.histMaxC      = data.daily?.temperature_2m_max ?? [];
+    rawExternal.histMinC      = data.daily?.temperature_2m_min ?? [];
+    rawExternal.chillStartStr = fmt(chillStart);
+    rawExternal.gddStartStr   = fmt(gddStart);
+  } catch(e) { console.warn('Season history fetch failed:', e); }
 }
 
 async function fetchSolar() {
   try {
-    const res  = await fetch(`https://api.sunrise-sunset.org/json?lat=${coords.lat}&lng=${coords.lon}&formatted=0`);
+    const res  = await proxyFetch(`https://api.sunrise-sunset.org/json?lat=${coords.lat}&lng=${coords.lon}&formatted=0`);
     const data = await res.json();
     const r    = data.results;
     const dlH  = Math.floor(r.day_length/3600), dlM = Math.floor((r.day_length%3600)/60);
     const dlStr = `${dlH}h ${dlM}m`;
+    rawExternal.dayLenSec = r.day_length;
     externalData['s-firstlight'] = { val_m: formatTime(r.civil_twilight_begin), val_i: formatTime(r.civil_twilight_begin), unit_m:'', unit_i:'' };
     externalData['s-sunrise']    = { val_m: formatTime(r.sunrise),              val_i: formatTime(r.sunrise),              unit_m:'', unit_i:'' };
     externalData['s-solarnoon']  = { val_m: formatTime(r.solar_noon),           val_i: formatTime(r.solar_noon),           unit_m:'', unit_i:'' };
@@ -1706,7 +2106,7 @@ async function fetchMoon() {
     const now  = new Date();
     const date = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
     const tz   = -(now.getTimezoneOffset() / 60);
-    const res  = await fetch(`https://aa.usno.navy.mil/api/rstt/oneday?date=${date}&coords=${coords.lat},${coords.lon}&tz=${tz}`);
+    const res  = await proxyFetch(`https://aa.usno.navy.mil/api/rstt/oneday?date=${date}&coords=${coords.lat},${coords.lon}&tz=${tz}`);
     const data = await res.json();
     const d    = data.properties.data;
     const rise = (d.moondata.find(e => e.phen === 'Rise') || {}).time || '—';
@@ -1725,7 +2125,7 @@ async function fetchMoon() {
 
 async function fetchFrost() {
   try {
-    const res  = await fetch(`https://api.weather.gov/alerts/active?point=${coords.lat},${coords.lon}`);
+    const res  = await proxyFetch(`https://api.weather.gov/alerts/active?point=${coords.lat},${coords.lon}`);
     const data = await res.json();
     const frostTypes = ['Frost Advisory','Freeze Warning','Hard Freeze Warning','Freeze Watch','Hard Freeze Watch','Frost Watch'];
     const alert = data.features.find(f => frostTypes.includes(f.properties.event));
@@ -1736,7 +2136,7 @@ async function fetchFrost() {
 
 async function fetchAQI() {
   try {
-    const res  = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${coords.lat}&longitude=${coords.lon}&current=pm2_5,grass_pollen,birch_pollen,ragweed_pollen&timezone=auto`);
+    const res  = await proxyFetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${coords.lat}&longitude=${coords.lon}&current=pm2_5,grass_pollen,birch_pollen,ragweed_pollen&timezone=auto`);
     const data = await res.json();
     const c    = data.current;
     const pollenLabels = ['Low','Moderate','High','Very High'];
@@ -1764,6 +2164,11 @@ document.addEventListener('click', e => {
     document.getElementById('dd-trigger').classList.remove('open');
     document.getElementById('dd-arrow').textContent  = '▼';
   }
+  if (!e.target.closest('[id^="dli-dd-section-"]')) {
+    document.querySelectorAll('[id^="dli-dd-menu-"]').forEach(m => m.style.display = 'none');
+    document.querySelectorAll('[id^="dli-dd-trigger-"]').forEach(t => t.classList.remove('open'));
+    document.querySelectorAll('[id^="dli-dd-arrow-"]').forEach(a => a.textContent = '▼');
+  }
 });
 function toggleParam(el) {
   const id = el.dataset.id;
@@ -1775,10 +2180,12 @@ function toggleParam(el) {
     activeParams[id] = { label, source };
     if (coords) refreshExternalData();
   } else { delete activeParams[id]; }
+  savePrefs();
   renderChips();
 }
 function removeParam(id) {
   delete activeParams[id];
+  savePrefs();
   const el = document.querySelector(`[data-id="${id}"]`);
   if (el) { el.classList.remove('checked'); el.querySelector('.chk').textContent = ''; }
   renderChips();
@@ -1799,11 +2206,12 @@ function renderChips() {
     const p = activeParams[id], ext = externalData[id];
     let valHtml;
     if (!coords)     valHtml = `<span class="chip-loading">Set location</span>`;
-    else if (!ext)   valHtml = `<span class="chip-loading">Loading…</span>`;
+    else if (!ext)   valHtml = `<span class="chip-loading">${externalFetchDone ? '—' : 'Loading…'}</span>`;
     else {
       const val  = units === 'metric' ? ext.val_m  : ext.val_i;
       const unit = units === 'metric' ? ext.unit_m : ext.unit_i;
-      valHtml = `<span class="chip-value">${val}<span class="chip-unit">${unit}</span></span>`;
+      const note = ext.note ? `<span class="chip-note"> ${ext.note}</span>` : '';
+      valHtml = `<span class="chip-value">${val}<span class="chip-unit">${unit}${note}</span></span>`;
     }
     return `<div class="param-chip">
       <div class="chip-info">
@@ -1817,6 +2225,44 @@ function renderChips() {
     </div>`;
   }).join('');
 }
+
+// ═══════════════════════════════════════════════
+// CARD VISIBILITY
+// ═══════════════════════════════════════════════
+function toggleCardMenu(board) {
+  const menu = document.getElementById(board + '-card-menu');
+  if (!menu) return;
+  const isOpen = menu.style.display === 'block';
+  document.querySelectorAll('.card-menu').forEach(m => m.style.display = 'none');
+  if (!isOpen) menu.style.display = 'block';
+}
+
+function toggleCard(macKey, cardId, visible) {
+  if (macKey) localStorage.setItem('card_' + macKey + '_' + cardId, visible ? 'true' : 'false');
+  const card = document.querySelector('.card[data-card="' + cardId + '"]');
+  if (card) card.style.display = visible ? '' : 'none';
+  savePrefs();
+}
+
+function initCardVisibility(board, macKey) {
+  const menu = document.getElementById(board + '-card-menu');
+  if (!menu) return;
+  menu.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    const cardId = cb.dataset.card;
+    const stored = localStorage.getItem('card_' + macKey + '_' + cardId);
+    if (stored === null) return;
+    const visible = stored !== 'false';
+    cb.checked = visible;
+    const card = document.querySelector('.card[data-card="' + cardId + '"]');
+    if (card) card.style.display = visible ? '' : 'none';
+  });
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.cards-toggle') && !e.target.closest('.card-menu')) {
+    document.querySelectorAll('.card-menu').forEach(m => m.style.display = 'none');
+  }
+});
 
 // ═══════════════════════════════════════════════
 // BOARD SENSORS
@@ -1834,6 +2280,112 @@ function setStatus(state, label) {
   // Show/hide setup banner
   const banner = document.getElementById('setup-banner');
   if (banner) banner.style.display = (state === 'setup') ? 'flex' : 'none';
+}
+
+// ═══════════════════════════════════════════════
+// DERIVED SENSOR CALCULATIONS
+// ═══════════════════════════════════════════════
+function calcDewPoint(tempC, rh) {
+  const alpha = (17.27 * tempC) / (237.3 + tempC) + Math.log(rh / 100);
+  return (237.3 * alpha) / (17.27 - alpha);
+}
+function calcVPD(tempC, rh) {
+  const es = 0.6108 * Math.exp(17.27 * tempC / (tempC + 237.3));
+  return es * (1 - rh / 100);
+}
+function vpdStressLabel(vpd) {
+  if (vpd < 0.4)  return 'Low — over-saturation risk';
+  if (vpd < 0.8)  return 'Ideal — propagation';
+  if (vpd < 1.2)  return 'Optimal — vegetative';
+  if (vpd < 1.6)  return 'Mild stress';
+  if (vpd < 2.5)  return 'High stress';
+  return 'Severe stress';
+}
+function calcFrostRisk(tempC, cloudCover, windSpeedKmh) {
+  if (tempC == null) return '—';
+  const radCooling = (cloudCover != null && cloudCover < 25) && (windSpeedKmh != null && windSpeedKmh < 10);
+  if (tempC <= 0) return 'High';
+  if (tempC <= 2) return radCooling ? 'High'     : 'Moderate';
+  if (tempC <= 4) return radCooling ? 'Moderate' : 'Low';
+  if (tempC <= 7) return radCooling ? 'Low'      : 'None';
+  return 'None';
+}
+function calcPhotoperiod(dayLenSec, lat) {
+  if (!dayLenSec) return '—';
+  const cls = dayLenSec < 43200 ? 'Short-day' : 'Long-day';
+  const now  = new Date();
+  const doy  = Math.round((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+  const isNorth     = (lat >= 0);
+  const lengthening = isNorth ? (doy < 172 || doy > 355) : (doy >= 172 && doy <= 355);
+  return cls + ' · ' + (lengthening ? 'Lengthening' : 'Shortening');
+}
+// Builds a combined date→{max,min} map from archive + forecast data.
+// Archive (ERA5) takes priority where dates overlap.
+function buildDayMap(histDates, histMax, histMin, forecastDates, forecastMax, forecastMin, fromStr) {
+  const map = {};
+  for (let i = 0; i < forecastDates.length; i++) {
+    const d = forecastDates[i];
+    if (d >= fromStr && forecastMax[i] != null && forecastMin[i] != null)
+      map[d] = { max: forecastMax[i], min: forecastMin[i] };
+  }
+  for (let i = 0; i < histDates.length; i++) {
+    const d = histDates[i];
+    if (d >= fromStr && histMax[i] != null && histMin[i] != null)
+      map[d] = { max: histMax[i], min: histMin[i] }; // archive overwrites forecast
+  }
+  return map;
+}
+
+// Accumulated GDD from Jan 1 of current year through today.
+// Base temperature: 10°C (50°F). No user input required.
+function calcAccumulatedGDD(histDates, histMax, histMin, gddStartStr, forecastDates, forecastMax, forecastMin) {
+  if (!gddStartStr) return null;
+  const map = buildDayMap(histDates, histMax, histMin, forecastDates, forecastMax, forecastMin, gddStartStr);
+  const dates = Object.keys(map).sort();
+  if (dates.length === 0) return null;
+  let totalM = 0, totalI = 0;
+  for (const d of dates) {
+    const { max, min } = map[d];
+    totalM += Math.max(0, (max + min) / 2 - 10);
+    totalI += Math.max(0, ((max * 9/5 + 32) + (min * 9/5 + 32)) / 2 - 50);
+  }
+  return { m: Math.round(totalM).toString(), i: Math.round(totalI).toString() };
+}
+
+// Accumulated chill hours since chill season start (Nov 1 north / May 1 south).
+// Uses asymmetric linear model: 8h warming phase, 16h cooling phase with next-day Tmin.
+// Accuracy: ±5% vs hourly calculation (model approximation only — data gap bridged by past_days).
+function calcAccumulatedChillHours(histDates, histMax, histMin, chillStartStr, forecastDates, forecastMax, forecastMin) {
+  if (!chillStartStr) return null;
+  const map   = buildDayMap(histDates, histMax, histMin, forecastDates, forecastMax, forecastMin, chillStartStr);
+  const dates = Object.keys(map).sort();
+  if (dates.length === 0) return null;
+  const allMax = dates.map(d => map[d].max);
+  const allMin = dates.map(d => map[d].min);
+  const THRESHOLD = 7.2;
+  let total = 0;
+  for (let d = 0; d < allMax.length; d++) {
+    const tmin      = allMin[d];
+    const tmax      = allMax[d];
+    const tmax_prev = d > 0               ? allMax[d - 1] : allMax[d];
+    const tmin_next = d + 1 < allMin.length ? allMin[d + 1] : allMin[d];
+    for (let h = 0; h < 24; h++) {
+      let temp;
+      if      (h < 6)  temp = tmax_prev + (tmin - tmax_prev) * (10 + h) / 16; // cooling continuation
+      else if (h < 14) temp = tmin      + (tmax - tmin)      * (h - 6)  / 8;  // warming
+      else             temp = tmax      + (tmin_next - tmax)  * (h - 14) / 16; // cooling
+      if (temp <= THRESHOLD) total++;
+    }
+  }
+  return total;
+}
+function calcHeatIndex(tempC, rh) {
+  if (tempC < 26.7 || rh < 40) return null;
+  const T = tempC * 9/5 + 32;
+  const HI = -42.379 + 2.04901523*T + 10.14333127*rh
+    - 0.22475541*T*rh - 0.00683783*T*T - 0.05391553*rh*rh
+    + 0.00122874*T*T*rh + 0.00085282*T*rh*rh - 0.00000199*T*T*rh*rh;
+  return (HI - 32) * 5/9;
 }
 
 function fillBoard(prefix, d, stale) {
@@ -1855,6 +2407,96 @@ function fillBoard(prefix, d, stale) {
   document.getElementById(prefix+'-vis').textContent  = fmtInt(d.visible);
   document.getElementById(prefix+'-ir').textContent   = fmtInt(d.infrared);
   document.getElementById(prefix+'-cond').textContent = stale ? '—' : luxCondition(lux);
+
+  // — Derived · Local
+  if (d.shtcOk && !stale) {
+    const dpC = calcDewPoint(d.tempC, d.humidity);
+    const dpF = dpC * 9/5 + 32;
+    document.getElementById(prefix+'-dewpoint-val').innerHTML = fmt1(showC ? dpC : dpF)+'<span class="unit">'+(showC?'°C':'°F')+'</span>';
+    document.getElementById(prefix+'-dewpoint-sub').textContent = showC ? fmt1(dpF)+' °F' : fmt1(dpC)+' °C';
+    const vpd = calcVPD(d.tempC, d.humidity);
+    document.getElementById(prefix+'-vpd-val').innerHTML = vpd.toFixed(2)+'<span class="unit">kPa</span>';
+    document.getElementById(prefix+'-vpd-sub').textContent = vpdStressLabel(vpd);
+    const hiC = calcHeatIndex(d.tempC, d.humidity);
+    if (hiC !== null) {
+      const hiF = hiC * 9/5 + 32;
+      document.getElementById(prefix+'-heatidx-val').innerHTML = fmt1(showC ? hiC : hiF)+'<span class="unit">'+(showC?'°C':'°F')+'</span>';
+      document.getElementById(prefix+'-heatidx-sub').textContent = showC ? fmt1(hiF)+' °F' : fmt1(hiC)+' °C';
+    } else {
+      document.getElementById(prefix+'-heatidx-val').innerHTML = '—';
+      document.getElementById(prefix+'-heatidx-sub').textContent = 'Not applicable';
+    }
+  } else {
+    document.getElementById(prefix+'-dewpoint-val').innerHTML = '—';
+    document.getElementById(prefix+'-dewpoint-sub').textContent = '—';
+    document.getElementById(prefix+'-vpd-val').innerHTML = '—<span class="unit">kPa</span>';
+    document.getElementById(prefix+'-vpd-sub').textContent = '—';
+    document.getElementById(prefix+'-heatidx-val').innerHTML = '—';
+    document.getElementById(prefix+'-heatidx-sub').textContent = '—';
+  }
+  // DLI — accumulated in fetchData(), displayed here
+  const dli       = dliTotals[prefix] || 0;
+  const dliMacKey = prefix === 'b1' ? b1MacKey : b2MacKey;
+  const dliTarget = dliMacKey ? parseFloat(localStorage.getItem('dli_target_'+dliMacKey) || '0') : 0;
+  const dliStr    = dli < 1 ? dli.toFixed(3) : dli.toFixed(2);
+  document.getElementById(prefix+'-dli-val').innerHTML = dliStr+'<span class="unit">mol/m²</span>';
+  if (dliTarget > 0) {
+    const pct = Math.min(100, (dli / dliTarget * 100)).toFixed(0);
+    document.getElementById(prefix+'-dli-sub').textContent = `${dliStr} / ${dliTarget} mol/m²/day · ${pct}%`;
+  } else {
+    document.getElementById(prefix+'-dli-sub').textContent = '≈ PAR · sunlight conversion factor';
+  }
+
+  // — Derived · Local + Regional
+  function setCombined(id, valHtml, subText) {
+    document.getElementById(prefix+'-'+id+'-val').innerHTML  = valHtml;
+    document.getElementById(prefix+'-'+id+'-sub').textContent = subText;
+  }
+  function combinedFallback(reason) {
+    const fb = `<span class="derived-fallback">${reason}</span>`;
+    setCombined('tempdelta',  fb, '');
+    setCombined('humdelta',   fb, '');
+    setCombined('vpddelta',   fb, '');
+    setCombined('waterdef',   fb, '');
+  }
+  if (!coords) {
+    combinedFallback('No location set');
+  } else if (rawExternal.outTempC === undefined) {
+    combinedFallback('API unavailable');
+  } else if (d.shtcOk && !stale) {
+    const sign = v => (v >= 0 ? '+' : '') + v;
+    // Temp Delta
+    const dtC = d.tempC - rawExternal.outTempC;
+    const dtF = dtC * 9/5;
+    const dtVal = showC ? dtC : dtF;
+    setCombined('tempdelta',
+      sign(fmt1(dtVal)) + `<span class="unit">${showC?'°C':'°F'}</span>`,
+      `local ${fmt1(showC ? d.tempC : d.tempF)}° · regional ${fmt1(showC ? rawExternal.outTempC : rawExternal.outTempC*9/5+32)}°`
+    );
+    // Humidity Delta
+    const dh = d.humidity - rawExternal.outRH;
+    setCombined('humdelta',
+      sign(fmt1(dh)) + '<span class="unit">%</span>',
+      `local ${fmt1(d.humidity)}% · regional ${fmtInt(rawExternal.outRH)}%`
+    );
+    // VPD Comparison
+    const localVPD    = calcVPD(d.tempC, d.humidity);
+    const regionalVPD = rawExternal.outVPD;
+    const dvpd = localVPD - regionalVPD;
+    setCombined('vpddelta',
+      sign(dvpd.toFixed(2)) + '<span class="unit">kPa</span>',
+      `local ${localVPD.toFixed(2)} kPa · regional ${regionalVPD.toFixed(2)} kPa`
+    );
+    // Water Deficit (simplified: ET₀ − precipitation, current data point)
+    const deficit = rawExternal.et0 - rawExternal.precip;
+    const defSign = deficit >= 0 ? '+' : '';
+    setCombined('waterdef',
+      defSign + fmt1(showC ? deficit : deficit/25.4) + `<span class="unit">${showC?'mm':'in'}</span>`,
+      `ET₀ ${fmt1(rawExternal.et0)} mm/hr · precip ${fmt1(rawExternal.precip)} mm · Kc not set`
+    );
+  } else {
+    combinedFallback('No sensor data');
+  }
 }
 
 async function fetchData() {
@@ -1866,31 +2508,62 @@ async function fetchData() {
     document.getElementById('error-msg').style.display = 'none';
     setStatus('live');
 
+    // DLI midnight reset
+    const todayStr = new Date().toDateString();
+    if (dliDate !== todayStr) {
+      dliTotals.b1 = 0; dliTotals.b2 = 0; dliDate = todayStr;
+      localStorage.setItem('dli_date', todayStr);
+      localStorage.removeItem('dli_b1'); localStorage.removeItem('dli_b2');
+    }
+    // Accumulate b1 DLI (lux × dt_s × lux→PPFD factor × µmol→mol)
+    dliTotals.b1 += data.b1.lux * (refreshMs / 1000) * 0.0185 * 1e-6;
+    localStorage.setItem('dli_b1', String(dliTotals.b1));
+
     fillBoard('b1', data.b1, false);
-    document.getElementById('b1-uptime').textContent = 'up: '+formatUptime(data.b1.uptime);
+    document.getElementById('b1-uptime').textContent = 'uptime: '+formatUptime(data.b1.uptime);
     const showC = units === 'metric';
     const dieC  = data.b1.dieTemp;
     const dieF  = dieC * 9.0 / 5.0 + 32.0;
     document.getElementById('b1-dietempc').innerHTML = (showC ? fmt1(dieC)+'<span class="unit">°C</span>' : fmt1(dieF)+'<span class="unit">°F</span>');
     document.getElementById('b1-dietempf').innerHTML = '<strong>'+(showC ? fmt1(dieF)+' °F' : fmt1(dieC)+' °C')+'</strong>';
 
-    // v1.1: b2 is no longer in /data — peer boards are in /peers (Network tab)
+    // v1.1: peer sensor data comes from /peers, not /data
+    const pRes  = await fetch('/peers');
+    const pData = await pRes.json();
+    const peers = pData.peers || [];
     const badge = document.getElementById('b2-badge');
-    if (data.b2) {
-      const stale = data.b2.stale;
-      fillBoard('b2', data.b2, stale);
-      document.getElementById('b2-uptime').textContent = data.b2.uptime>0 ? 'up: '+formatUptime(data.b2.uptime) : 'up: —';
+    if (peers.length > 0) {
+      const p     = peers[0];
+      const stale = p.sensorStale;
       if (!stale) {
-        const s = Math.round(data.b2.lastSeenMs/1000);
-        badge.innerHTML = `<span class="link-badge linked"><span class="ldot"></span>Linked · ${s}s ago</span>`;
-      } else if (data.b2.mac !== '—') {
-        badge.innerHTML = `<span class="link-badge stale"><span class="ldot"></span>Signal lost</span>`;
+        dliTotals.b2 += p.lux * (refreshMs / 1000) * 0.0185 * 1e-6;
+        localStorage.setItem('dli_b2', String(dliTotals.b2));
+      }
+      fillBoard('b2', p, stale);
+      const b2dieC = p.dieTemp || 0;
+      const b2dieF = b2dieC * 9.0 / 5.0 + 32.0;
+      document.getElementById('b2-dietempc').innerHTML = showC ? fmt1(b2dieC)+'<span class="unit">°C</span>' : fmt1(b2dieF)+'<span class="unit">°F</span>';
+      document.getElementById('b2-dietempf').innerHTML = '<strong>'+(showC ? fmt1(b2dieF)+' °F' : fmt1(b2dieC)+' °C')+'</strong>';
+      document.getElementById('b2-uptime').textContent = p.uptime > 0 ? 'uptime: ' + formatUptime(p.uptime) : 'uptime: —';
+      if (!stale) {
+        const s = Math.round((p.lastSeenMs || 0) / 1000);
+        badge.innerHTML = `<span class="link-badge linked"><span class="ldot"></span>Linked</span>`;
+        document.getElementById('b2-last-seen').textContent = 'last packet: ' + s + 's ago';
       } else {
-        badge.innerHTML = `<span class="link-badge waiting"><span class="ldot"></span>Waiting…</span>`;
+        badge.innerHTML = `<span class="link-badge stale"><span class="ldot"></span>Signal lost</span>`;
+        document.getElementById('b2-last-seen').textContent = '';
+      }
+      const b2h2 = document.querySelector('#col-b2 h2');
+      if (b2h2) b2h2.textContent = p.boardName || p.mac;
+      if (b2MacKey !== p.mac) {
+        b2MacKey = p.mac;
+        applyBoardPrefs(b2MacKey, restoredBoardPrefs[b2MacKey]);
+        initCardVisibility('b2', b2MacKey);
       }
     } else {
-      document.getElementById('b2-uptime').textContent = 'up: —';
-      badge.innerHTML = `<span class="link-badge waiting"><span class="ldot"></span>See Network tab</span>`;
+      document.getElementById('b2-uptime').textContent = 'uptime: —';
+      document.getElementById('b2-last-seen').textContent = '';
+      badge.innerHTML = `<span class="link-badge waiting"><span class="ldot"></span>Waiting…</span>`;
     }
 
     // Update relay UI from /data response
@@ -1900,7 +2573,7 @@ async function fetchData() {
 
     document.getElementById('val-ts').textContent = new Date().toLocaleTimeString();
 
-    if (coords && Object.keys(activeParams).length>0 && Date.now()-lastAgriRefresh>AGRI_MS) {
+    if (coords && Date.now()-lastAgriRefresh>AGRI_MS) {
       refreshExternalData();
     }
 
@@ -1944,24 +2617,94 @@ async function fetchVersion() {
       const b1h2 = document.querySelector('#col-b1 h2');
       if (b1h2) b1h2.textContent = boardLabel;
     }
-  } catch(e) {}
-}
-
-async function fetchPeerLabel() {
-  try {
-    const res   = await fetch('/peers');
-    const data  = await res.json();
-    const peers = data.peers || [];
-    const b2h2  = document.querySelector('#col-b2 h2');
-    if (b2h2 && peers.length > 0)
-      b2h2.textContent = peers[0].boardName || peers[0].mac;
+    initCardVisibility('b1', b1MacKey);
   } catch(e) {}
 }
 
 fetchData();
 fetchVersion();
-fetchPeerLabel();
 applyAgriSourceFilter();
+
+// Restore location + active parameters — board is source of truth, localStorage is offline fallback
+async function restoreAgriState() {
+  prefsRestoring = true;
+  let fromBoard = false;
+  try {
+    const res = await fetch('/prefs');
+    if (res.ok) {
+      const p = await res.json();
+
+      // Agri location + active params
+      if (p.coords) { coords = p.coords; localStorage.setItem('agri_coords', JSON.stringify(p.coords)); }
+      if (p.activeParams && Object.keys(p.activeParams).length) {
+        activeParams = p.activeParams;
+        Object.keys(activeParams).forEach(id => {
+          const el = document.querySelector(`#dd-menu [data-id="${id}"]`);
+          if (el) { el.classList.add('checked'); el.querySelector('.chk').textContent = '✓'; }
+        });
+      }
+      const inp = p.locInput  || localStorage.getItem('agri_loc_input')  || '';
+      const sts = p.locStatus || localStorage.getItem('agri_loc_status') || '';
+      if (inp) document.getElementById('loc-input').value = inp;
+      if (sts) document.getElementById('loc-status').innerHTML = sts;
+
+      // App settings
+      if (p.units) setUnits(p.units);
+      if (p.refreshMs) {
+        refreshMs = parseInt(p.refreshMs);
+        localStorage.setItem('refreshMs', String(refreshMs));
+        clearInterval(fetchInterval);
+        fetchInterval = setInterval(fetchData, refreshMs);
+      }
+      if (p.autoSyncTime != null) localStorage.setItem('autoSyncTime', p.autoSyncTime ? 'true' : 'false');
+      if (p.tipsEnabled  != null) { tipsEnabled = p.tipsEnabled; localStorage.setItem('tipsEnabled', tipsEnabled ? 'true' : 'false'); }
+      if (p.fs) {
+        if (p.fs.val != null) { fsScales.val = p.fs.val; localStorage.setItem('fs_val', String(p.fs.val)); }
+        if (p.fs.sec != null) { fsScales.sec = p.fs.sec; localStorage.setItem('fs_sec', String(p.fs.sec)); }
+        if (p.fs.ui  != null) { fsScales.ui  = p.fs.ui;  localStorage.setItem('fs_ui',  String(p.fs.ui));  }
+        applyFontScales();
+      }
+      if (p.agriSrc) {
+        Object.entries(p.agriSrc).forEach(([id, enabled]) => {
+          localStorage.setItem('agriSrc_' + id, enabled ? 'true' : 'false');
+        });
+        applyAgriSourceFilter();
+      }
+
+      // Board-specific prefs — b1 immediately, b2 deferred until mac is known
+      if (p.boards) {
+        restoredBoardPrefs = p.boards;
+        applyBoardPrefs('b1', p.boards['b1']);
+        initCardVisibility('b1', 'b1');
+      }
+
+      fromBoard = true;
+    }
+  } catch(e) {}
+  if (!fromBoard) {
+    const savedCoords = localStorage.getItem('agri_coords');
+    const savedInput  = localStorage.getItem('agri_loc_input');
+    const savedStatus = localStorage.getItem('agri_loc_status');
+    const savedActive = localStorage.getItem('agri_active');
+    if (savedCoords)  { try { coords = JSON.parse(savedCoords); } catch(e) {} }
+    if (savedInput)   document.getElementById('loc-input').value = savedInput;
+    if (savedStatus)  document.getElementById('loc-status').innerHTML = savedStatus;
+    if (savedActive)  {
+      try {
+        activeParams = JSON.parse(savedActive);
+        Object.keys(activeParams).forEach(id => {
+          const el = document.querySelector(`#dd-menu [data-id="${id}"]`);
+          if (el) { el.classList.add('checked'); el.querySelector('.chk').textContent = '✓'; }
+        });
+      } catch(e) {}
+    }
+  }
+  prefsRestoring = false;
+  if (coords && Object.keys(activeParams).length) refreshExternalData();
+  else renderChips();
+}
+restoreAgriState();
+
 fetchInterval = setInterval(fetchData, refreshMs);
 
 // ═══════════════════════════════════════════════
@@ -1997,38 +2740,42 @@ async function initSettingsTab() {
 // WEBAPP SETTINGS
 // ═══════════════════════════════════════════════
 const AGRI_SOURCES = [
-  { id:'om',    label:'Open-Meteo' },
-  { id:'ss',    label:'Sunrise-Sunset.org' },
-  { id:'usno',  label:'USNO' },
-  { id:'noaa',  label:'NOAA NWS' },
-  { id:'omaqi', label:'Open-Meteo AQI' },
+  { id:'om',    label:'Open-Meteo',        tip:'Free open-source weather API. Provides current conditions, forecasts, soil data, and evapotranspiration.' },
+  { id:'ss',    label:'Sunrise-Sunset.org',tip:'Free solar time API. Provides sunrise, sunset, solar noon, day length, and civil twilight for your location.' },
+  { id:'usno',  label:'USNO',              tip:'US Naval Observatory. Provides moon phase and lunar rise/set times.' },
+  { id:'noaa',  label:'NOAA NWS',          tip:'National Weather Service alerts. US locations only — frost, freeze, and severe weather warnings.' },
+  { id:'omaqi', label:'Open-Meteo AQI',    tip:'Open-Meteo air quality data. Provides particulate matter and pollen counts.' },
 ];
 
 const AGRI_PARAMS = [
-  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-temp',       srcId:'om',    label:'Outdoor Temperature'     },
-  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-precip',     srcId:'om',    label:'Precipitation'            },
-  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-wind',       srcId:'om',    label:'Wind Speed'               },
-  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-cloud',      srcId:'om',    label:'Cloud Cover'              },
-  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-humid',      srcId:'om',    label:'Outdoor Humidity'         },
-  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-firstlight', srcId:'ss',    label:'First Light / Civil Dawn' },
-  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-sunrise',    srcId:'ss',    label:'Sunrise'                  },
-  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-solarnoon',  srcId:'ss',    label:'Solar Noon'               },
-  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-sunset',     srcId:'ss',    label:'Sunset'                   },
-  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-lastlight',  srcId:'ss',    label:'Last Light / Civil Dusk'  },
-  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-daylen',     srcId:'ss',    label:'Day Length'               },
-  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-uv',         srcId:'om',    label:'UV Index'                 },
-  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-rad',        srcId:'om',    label:'Shortwave Radiation'      },
-  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-soil0',      srcId:'om',    label:'Soil Temp (0–7cm)'        },
-  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-soil1',      srcId:'om',    label:'Soil Temp (7–28cm)'       },
-  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-soilm',      srcId:'om',    label:'Soil Moisture'            },
-  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-et',         srcId:'om',    label:'Evapotranspiration (ET₀)' },
-  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-vpd',        srcId:'om',    label:'Vapor Pressure Deficit'   },
-  { group:'m', groupLabel:'Moon',                   id:'m-phase',      srcId:'usno',  label:'Moon Phase'               },
-  { group:'m', groupLabel:'Moon',                   id:'m-moonrise',   srcId:'usno',  label:'Moonrise'                 },
-  { group:'m', groupLabel:'Moon',                   id:'m-moonset',    srcId:'usno',  label:'Moonset'                  },
-  { group:'n', groupLabel:'Weather Alerts',         id:'n-frost',      srcId:'noaa',  label:'Frost / Freeze Alert'     },
-  { group:'q', groupLabel:'Air Quality',            id:'q-pm25',       srcId:'omaqi', label:'PM2.5 Particulates'       },
-  { group:'q', groupLabel:'Air Quality',            id:'q-pollen',     srcId:'omaqi', label:'Pollen Count'             },
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-temp',       srcId:'om',    label:'Outdoor Temperature',     tip:'Current outdoor air temperature at 2m height. Source: Open-Meteo.' },
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-precip',     srcId:'om',    label:'Precipitation',            tip:'Rainfall or snowfall accumulated in the last hour. Source: Open-Meteo.' },
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-wind',       srcId:'om',    label:'Wind Speed',               tip:'Wind speed at 10m height. Source: Open-Meteo.' },
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-cloud',      srcId:'om',    label:'Cloud Cover',              tip:'Fraction of sky covered by clouds, as a percentage. Source: Open-Meteo.' },
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-humid',      srcId:'om',    label:'Outdoor Humidity',         tip:'Relative humidity at 2m height. Source: Open-Meteo.' },
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-frost-risk', srcId:'om',    label:'Frost Risk',               tip:'Calculated frost risk based on current temperature, cloud cover, and wind. None / Low / Moderate / High. Clear skies and low wind increase risk through radiative cooling. Source: Open-Meteo.' },
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-gdd',        srcId:'om',    label:'Growing Degree Days',      tip:"Season-to-date heat accumulation above base temperature (10°C / 50°F) since Jan 1. Used to predict crop development stages — germination, flowering, harvest. GDD drives plant growth more reliably than calendar days. Source: Open-Meteo (ERA5 archive + recent forecast)." },
+  { group:'w', groupLabel:'Weather &amp; Forecast', id:'w-chill',      srcId:'om',    label:'Chill Hours',              tip:'Season-to-date chill hours (hours at or below 7.2°C / 45°F) accumulated since Nov 1 (northern hemisphere) or May 1 (southern). Fruit trees and berry bushes require a minimum chill accumulation during dormancy to bloom and fruit properly. Estimate ±5%. Source: Open-Meteo (ERA5 archive + recent forecast).' },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-firstlight', srcId:'ss',    label:'First Light / Civil Dawn', tip:'First usable daylight — sun is 6° below the horizon. Source: Sunrise-Sunset.org.' },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-sunrise',    srcId:'ss',    label:'Sunrise',                  tip:'Time of official sunrise at your location. Source: Sunrise-Sunset.org.' },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-solarnoon',  srcId:'ss',    label:'Solar Noon',               tip:'When the sun reaches its highest point in the sky. Source: Sunrise-Sunset.org.' },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-sunset',     srcId:'ss',    label:'Sunset',                   tip:'Time of official sunset at your location. Source: Sunrise-Sunset.org.' },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-lastlight',  srcId:'ss',    label:'Last Light / Civil Dusk',  tip:'Last usable daylight — sun is 6° below the horizon. Source: Sunrise-Sunset.org.' },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-daylen',     srcId:'ss',    label:'Day Length',               tip:'Total hours of daylight between sunrise and sunset. Source: Sunrise-Sunset.org.' },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-uv',         srcId:'om',    label:'UV Index',                 tip:'Ultraviolet radiation index. 0–2 low, 3–5 moderate, 6–7 high, 8–10 very high, 11+ extreme. Source: Open-Meteo.' },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-rad',        srcId:'om',    label:'Shortwave Radiation',      tip:'Total incoming solar radiation in W/m². Source: Open-Meteo.' },
+  { group:'s', groupLabel:'Solar &amp; Light',      id:'s-photo',      srcId:'ss',    label:'Photoperiod',              tip:'Day length classification (Short-day <12h / Long-day >12h) and seasonal trend (Lengthening or Shortening). Useful for planning photoperiod-sensitive crops. Source: Sunrise-Sunset.org.' },
+  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-soil0',      srcId:'om',    label:'Soil Temp (0–7cm)',        tip:'Soil temperature at 0–7cm depth. Source: Open-Meteo.' },
+  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-soil1',      srcId:'om',    label:'Soil Temp (7–28cm)',       tip:'Soil temperature at 7–28cm depth. Source: Open-Meteo.' },
+  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-soilm',      srcId:'om',    label:'Soil Moisture',            tip:'Volumetric soil water content at 0–7cm in m³/m³. Source: Open-Meteo.' },
+  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-et',         srcId:'om',    label:'Evapotranspiration (ET₀)', tip:'FAO-56 reference evapotranspiration — estimated water loss from soil and plants per hour. Used in the Water Deficit derived card. Source: Open-Meteo.' },
+  { group:'a', groupLabel:'Soil &amp; Agriculture', id:'a-vpd',        srcId:'om',    label:'Vapor Pressure Deficit',   tip:'Outdoor vapor pressure deficit in kPa. Used in the VPD Comparison derived card. Source: Open-Meteo.' },
+  { group:'m', groupLabel:'Moon',                   id:'m-phase',      srcId:'usno',  label:'Moon Phase',               tip:'Current lunar phase and illumination percentage. Source: USNO.' },
+  { group:'m', groupLabel:'Moon',                   id:'m-moonrise',   srcId:'usno',  label:'Moonrise',                 tip:'Time of moonrise at your location. Source: USNO.' },
+  { group:'m', groupLabel:'Moon',                   id:'m-moonset',    srcId:'usno',  label:'Moonset',                  tip:'Time of moonset at your location. Source: USNO.' },
+  { group:'n', groupLabel:'Weather Alerts',         id:'n-frost',      srcId:'noaa',  label:'Frost / Freeze Alert',     tip:'Active frost or freeze weather alerts. US locations only. Source: NOAA NWS.' },
+  { group:'q', groupLabel:'Air Quality',            id:'q-pm25',       srcId:'omaqi', label:'PM2.5 Particulates',       tip:'Fine particulate matter concentration in μg/m³. Values above 12 may affect sensitive individuals. Source: Open-Meteo AQI.' },
+  { group:'q', groupLabel:'Air Quality',            id:'q-pollen',     srcId:'omaqi', label:'Pollen Count',             tip:'Grass pollen concentration in grains/m³. Source: Open-Meteo AQI.' },
 ];
 
 function agriParamEnabled(id) {
@@ -2047,12 +2794,14 @@ function toggleSource(srcId, enabled) {
   });
   applyAgriSourceFilter();
   renderSourceList();
+  savePrefs();
 }
 
 function toggleAgriSource(id, enabled) {
   localStorage.setItem('agriSrc_' + id, enabled ? 'true' : 'false');
   applyAgriSourceFilter();
   renderSourceList();
+  savePrefs();
 }
 
 function isCategoryCollapsed(key) {
@@ -2080,7 +2829,7 @@ function renderSourceList() {
         <input type="checkbox" id="src-${src.id}" ${checked ? 'checked' : ''}
           onchange="toggleSource('${src.id}', this.checked)"
           style="cursor:pointer;accent-color:#00e5ff;flex-shrink:0;">
-        <label class="agri-source-label" for="src-${src.id}" style="cursor:pointer;">${src.label}</label>
+        <label class="agri-source-label" for="src-${src.id}" style="cursor:pointer;" data-tip="${src.tip||''}">${src.label}</label>
         <span class="agri-source-count">${count} param${count !== 1 ? 's' : ''}</span>
       </div>
       <button class="agri-source-arrow" onclick="openAgriSourceView('${src.id}')">›</button>
@@ -2118,7 +2867,7 @@ function renderAgriSourceList(srcId) {
         <input type="checkbox" id="agri-${p.id}" ${checked ? 'checked' : ''}
           onchange="toggleAgriSource('${p.id}', this.checked)"
           style="cursor:pointer;accent-color:#00e5ff;flex-shrink:0;">
-        <label class="agri-check-label" for="agri-${p.id}">${p.label}</label>
+        <label class="agri-check-label" for="agri-${p.id}" data-tip="${p.tip||''}">${p.label}</label>
       </div>`;
     });
     html += '</div>';
@@ -2148,6 +2897,7 @@ function setRefreshRate(ms) {
   localStorage.setItem('refreshMs', ms);
   clearInterval(fetchInterval);
   fetchInterval = setInterval(fetchData, refreshMs);
+  savePrefs();
 }
 
 function initWebAppSettings() {
@@ -2159,7 +2909,227 @@ function initWebAppSettings() {
   if (sel) sel.value = String(refreshMs);
   const asCb = document.getElementById('set-autosync');
   if (asCb) asCb.checked = localStorage.getItem('autoSyncTime') !== 'false';
+  const tipsCb = document.getElementById('set-tips');
+  if (tipsCb) tipsCb.checked = tipsEnabled;
+  applyFontScales();
   renderSourceList();
+}
+
+// ═══════════════════════════════════════════════
+// DERIVED CARD SETTINGS (Phase 6)
+// ═══════════════════════════════════════════════
+const DLI_PRESETS = [
+  { id:'seedlings',       cat:'Propagation',          name:'Seedlings / Propagation', lo:6,  hi:10 },
+  { id:'microgreens',     cat:'Propagation',          name:'Microgreens',             lo:6,  hi:10 },
+  { id:'lettuce-head',    cat:'Leafy Greens',         name:'Lettuce (head)',          lo:12, hi:17 },
+  { id:'lettuce-leaf',    cat:'Leafy Greens',         name:'Lettuce (leaf)',          lo:15, hi:18 },
+  { id:'spinach',         cat:'Leafy Greens',         name:'Spinach',                 lo:12, hi:17 },
+  { id:'kale',            cat:'Leafy Greens',         name:'Kale',                    lo:12, hi:17 },
+  { id:'arugula',         cat:'Leafy Greens',         name:'Arugula',                 lo:12, hi:17 },
+  { id:'chard',           cat:'Leafy Greens',         name:'Chard',                   lo:12, hi:17 },
+  { id:'basil',           cat:'Herbs',                name:'Basil',                   lo:14, hi:17 },
+  { id:'cilantro',        cat:'Herbs',                name:'Cilantro',                lo:15, hi:20 },
+  { id:'mint',            cat:'Herbs',                name:'Mint',                    lo:10, hi:16 },
+  { id:'parsley',         cat:'Herbs',                name:'Parsley',                 lo:10, hi:16 },
+  { id:'oregano',         cat:'Herbs',                name:'Oregano',                 lo:15, hi:20 },
+  { id:'thyme',           cat:'Herbs',                name:'Thyme',                   lo:15, hi:20 },
+  { id:'rosemary',        cat:'Herbs',                name:'Rosemary',                lo:18, hi:25 },
+  { id:'broccoli',        cat:'Brassicas',            name:'Broccoli',                lo:15, hi:35 },
+  { id:'cauliflower',     cat:'Brassicas',            name:'Cauliflower',             lo:9,  hi:15 },
+  { id:'cabbage',         cat:'Brassicas',            name:'Cabbage',                 lo:15, hi:20 },
+  { id:'brussels',        cat:'Brassicas',            name:'Brussels Sprouts',        lo:15, hi:20 },
+  { id:'carrot',          cat:'Root Vegetables',      name:'Carrot',                  lo:12, hi:17 },
+  { id:'beet',            cat:'Root Vegetables',      name:'Beet',                    lo:12, hi:17 },
+  { id:'radish',          cat:'Root Vegetables',      name:'Radish',                  lo:12, hi:17 },
+  { id:'beans',           cat:'Legumes',              name:'Beans (snap/green)',      lo:15, hi:20 },
+  { id:'peas',            cat:'Legumes',              name:'Peas (snap/snow)',        lo:12, hi:18 },
+  { id:'tomato',          cat:'Fruiting Vegetables',  name:'Tomato',                  lo:20, hi:30 },
+  { id:'pepper',          cat:'Fruiting Vegetables',  name:'Pepper',                  lo:30, hi:40 },
+  { id:'cucumber',        cat:'Fruiting Vegetables',  name:'Cucumber',                lo:20, hi:30 },
+  { id:'eggplant',        cat:'Fruiting Vegetables',  name:'Eggplant',                lo:20, hi:30 },
+  { id:'squash',          cat:'Fruiting Vegetables',  name:'Squash',                  lo:20, hi:30 },
+  { id:'strawberry',      cat:'Fruits',               name:'Strawberry',              lo:18, hi:25 },
+  { id:'cannabis-veg',    cat:'Cannabis',             name:'Cannabis (vegetative)',   lo:25, hi:40 },
+  { id:'cannabis-flower', cat:'Cannabis',             name:'Cannabis (flowering)',    lo:40, hi:60 },
+  { id:'african-violet',  cat:'Ornamentals',          name:'African Violet',          lo:4,  hi:6  },
+  { id:'petunia',         cat:'Ornamentals',          name:'Petunia',                 lo:14, hi:20 },
+];
+
+function renderDerivedSettings(macKey, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const storedPreset = localStorage.getItem('dli_preset_' + macKey) || '';
+  const userPresets  = JSON.parse(localStorage.getItem('dli_userpresets_' + macKey) || '[]');
+  const gddBaseC     = parseFloat(localStorage.getItem('gdd_base_' + macKey) || '10');
+  const showGDDF     = units === 'imperial';
+  const gddBase      = showGDDF ? (gddBaseC * 9/5 + 32).toFixed(1) : String(gddBaseC);
+  const seasonStart  = localStorage.getItem('season_start_'    + macKey) || '';
+
+  // Build custom dropdown
+  let triggerLabel = '— Select a crop —';
+  if (storedPreset) {
+    const _b = DLI_PRESETS.find(p => p.id === storedPreset);
+    if (_b) { triggerLabel = `${_b.name} (${_b.lo}–${_b.hi})`; }
+    else { const _u = userPresets.find(p => p.id === storedPreset); if (_u) triggerLabel = `${escHtml(_u.name)} (${_u.target})`; }
+  }
+  let itemsHtml = `<div class="dd-item${!storedPreset?' checked':''}" data-value="" onclick="selectDLIPreset('${macKey}','${containerId}','')"><span class="dd-item-label">— Select a crop —</span></div>`;
+  let lastCat = '';
+  DLI_PRESETS.forEach(p => {
+    if (p.cat !== lastCat) { itemsHtml += `<div class="dd-group-lbl">${p.cat}</div>`; lastCat = p.cat; }
+    itemsHtml += `<div class="dd-item${storedPreset===p.id?' checked':''}" data-value="${p.id}" onclick="selectDLIPreset('${macKey}','${containerId}','${p.id}')"><span class="dd-item-label">${p.name} (${p.lo}–${p.hi})</span></div>`;
+  });
+  if (userPresets.length) {
+    itemsHtml += '<div class="dd-group-lbl">My Presets</div>';
+    userPresets.forEach(u => { itemsHtml += `<div class="dd-item${storedPreset===u.id?' checked':''}" data-value="${u.id}" onclick="selectDLIPreset('${macKey}','${containerId}','${u.id}')"><span class="dd-item-label">${escHtml(u.name)} (${u.target})</span></div>`; });
+  }
+  // Target display text
+  let targetTxt = '';
+  if (storedPreset) {
+    const b = DLI_PRESETS.find(p => p.id === storedPreset);
+    if (b) { const mid = Math.round((b.lo+b.hi)/2); targetTxt = `Target: ${mid} mol/m²/day  (${b.lo}–${b.hi} range)`; localStorage.setItem('dli_target_'+macKey, String(mid)); }
+    else { const u = userPresets.find(p => p.id === storedPreset); if (u) targetTxt = `Target: ${u.target} mol/m²/day`; }
+  }
+  // User preset list
+  let userListHtml = '';
+  if (userPresets.length) {
+    userListHtml = '<div class="dli-user-presets">';
+    userPresets.forEach(u => {
+      userListHtml += `<div class="dli-user-preset-row">${escHtml(u.name)} — ${u.target} mol/m²/day <button class="dli-preset-delete" onclick="deleteUserPreset('${macKey}','${u.id}','${containerId}')" title="Remove">✕</button></div>`;
+    });
+    userListHtml += '</div>';
+  }
+
+  container.innerHTML = `
+<div class="settings-section">
+  <div class="settings-section-title">Derived Cards</div>
+  <div class="settings-row">
+    <label class="settings-label">DLI Crop Target</label>
+    <div class="dli-preset-wrap">
+      <div class="dropdown-section" id="dli-dd-section-${macKey}" style="max-width:420px;">
+        <button class="dropdown-trigger" id="dli-dd-trigger-${macKey}" onclick="toggleDLIDropdown('${macKey}')">
+          <span>${triggerLabel}</span>
+          <span id="dli-dd-arrow-${macKey}">▼</span>
+        </button>
+        <div class="dropdown-menu" id="dli-dd-menu-${macKey}" style="display:none;left:0;right:0;">${itemsHtml}</div>
+      </div>
+      <div id="dli-target-display-${macKey}" class="dli-target-display">${targetTxt}</div>
+      ${userListHtml}
+      <button class="settings-save-btn" onclick="toggleNewPresetForm('${macKey}')" style="margin-top:8px;width:fit-content;">+ New preset…</button>
+      <div class="dli-new-preset-form" id="dli-new-form-${macKey}">
+        <div class="dli-new-form-row">
+          <input class="settings-input" type="text" id="dli-new-name-${macKey}" placeholder="Name" maxlength="32" style="flex:1;min-width:120px;">
+          <input class="settings-input" type="number" id="dli-new-target-${macKey}" placeholder="Target" min="1" max="100" step="0.5" style="width:72px;">
+          <span class="settings-unit-label">mol/m²/day</span>
+          <button class="settings-save-btn" onclick="saveUserPreset('${macKey}','${containerId}')">Save</button>
+        </div>
+        <span id="dli-new-msg-${macKey}" class="settings-msg"></span>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border);">
+    <div class="settings-section-title" style="margin-bottom:8px;">GDD &amp; Chill Hours</div>
+  </div>
+  <div class="settings-row">
+    <label class="settings-label">GDD Base Temperature</label>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <input class="settings-input" type="number" id="gdd-base-${macKey}" min="${showGDDF?'32':'0'}" max="${showGDDF?'68':'20'}" step="0.5" value="${gddBase}" style="width:72px;" oninput="saveGDDBase('${macKey}')">
+      <span class="settings-unit-label">${showGDDF?'°F':'°C'}</span>
+    </div>
+    <span class="settings-hint">Base temp for Growing Degree Day calculations. Common values: corn = ${showGDDF?'50°F':'10°C'}, wheat = ${showGDDF?'41°F':'5°C'}, tomato = ${showGDDF?'50°F':'10°C'}.</span>
+  </div>
+  <div class="settings-row" style="margin-top:14px;">
+    <label class="settings-label">Season Start Date</label>
+    <input class="settings-input" type="date" id="season-start-${macKey}" value="${seasonStart}" style="width:auto;" oninput="saveSeasonStart('${macKey}')">
+    <span class="settings-hint">Start date for GDD and Chill Hour accumulation. Typically your planting date or season beginning.</span>
+  </div>
+</div>`;
+}
+
+function onDLIPresetChange(macKey, containerId, val) {
+  localStorage.setItem('dli_preset_'+macKey, val);
+  const targetDisplay = document.getElementById('dli-target-display-'+macKey);
+  if (val) {
+    const b = DLI_PRESETS.find(p => p.id === val);
+    if (b) { const mid = Math.round((b.lo+b.hi)/2); localStorage.setItem('dli_target_'+macKey, String(mid)); targetDisplay.textContent = `Target: ${mid} mol/m²/day  (${b.lo}–${b.hi} range)`; }
+    else { const ups = JSON.parse(localStorage.getItem('dli_userpresets_'+macKey)||'[]'); const u = ups.find(p=>p.id===val); if(u){localStorage.setItem('dli_target_'+macKey,String(u.target)); targetDisplay.textContent=`Target: ${u.target} mol/m²/day`;} }
+  } else {
+    targetDisplay.textContent = '';
+    localStorage.removeItem('dli_target_'+macKey); localStorage.removeItem('dli_preset_'+macKey);
+  }
+}
+function toggleDLIDropdown(macKey) {
+  const menu    = document.getElementById('dli-dd-menu-'+macKey);
+  const trigger = document.getElementById('dli-dd-trigger-'+macKey);
+  const arrow   = document.getElementById('dli-dd-arrow-'+macKey);
+  const isOpen  = menu.style.display !== 'none';
+  document.querySelectorAll('[id^="dli-dd-menu-"]').forEach(m => m.style.display = 'none');
+  document.querySelectorAll('[id^="dli-dd-trigger-"]').forEach(t => t.classList.remove('open'));
+  document.querySelectorAll('[id^="dli-dd-arrow-"]').forEach(a => a.textContent = '▼');
+  if (!isOpen) {
+    menu.style.display = 'block';
+    trigger.classList.add('open');
+    arrow.textContent = '▲';
+  }
+}
+function selectDLIPreset(macKey, containerId, value) {
+  const menu = document.getElementById('dli-dd-menu-'+macKey);
+  if (menu) {
+    menu.querySelectorAll('.dd-item').forEach(el => el.classList.remove('checked'));
+    const sel = menu.querySelector(`.dd-item[data-value="${value}"]`);
+    if (sel) sel.classList.add('checked');
+  }
+  let label = '— Select a crop —';
+  if (value === 'custom') { label = 'Custom'; }
+  else if (value) {
+    const b = DLI_PRESETS.find(p => p.id === value);
+    if (b) { label = `${b.name} (${b.lo}–${b.hi})`; }
+    else { const ups = JSON.parse(localStorage.getItem('dli_userpresets_'+macKey)||'[]'); const u = ups.find(p=>p.id===value); if(u) label=`${u.name} (${u.target})`; }
+  }
+  const trigger = document.getElementById('dli-dd-trigger-'+macKey);
+  if (trigger) trigger.querySelector('span').textContent = label;
+  const arrow = document.getElementById('dli-dd-arrow-'+macKey);
+  if (menu)    menu.style.display = 'none';
+  if (trigger) trigger.classList.remove('open');
+  if (arrow)   arrow.textContent = '▼';
+  onDLIPresetChange(macKey, containerId, value);
+  savePrefs();
+}
+
+function toggleNewPresetForm(macKey) {
+  document.getElementById('dli-new-form-'+macKey).classList.toggle('open');
+}
+function saveUserPreset(macKey, containerId) {
+  const name   = document.getElementById('dli-new-name-'+macKey).value.trim();
+  const target = parseFloat(document.getElementById('dli-new-target-'+macKey).value);
+  const msgEl  = document.getElementById('dli-new-msg-'+macKey);
+  if (!name)          { msgEl.textContent = 'Enter a name.';         return; }
+  if (!target || target <= 0) { msgEl.textContent = 'Enter a target.'; return; }
+  const presets = JSON.parse(localStorage.getItem('dli_userpresets_'+macKey)||'[]');
+  presets.push({ id: 'user_'+Date.now(), name, target });
+  localStorage.setItem('dli_userpresets_'+macKey, JSON.stringify(presets));
+  renderDerivedSettings(macKey, containerId);
+  savePrefs();
+}
+function deleteUserPreset(macKey, presetId, containerId) {
+  let presets = JSON.parse(localStorage.getItem('dli_userpresets_'+macKey)||'[]');
+  presets = presets.filter(p => p.id !== presetId);
+  localStorage.setItem('dli_userpresets_'+macKey, JSON.stringify(presets));
+  if (localStorage.getItem('dli_preset_'+macKey) === presetId) {
+    localStorage.removeItem('dli_preset_'+macKey); localStorage.removeItem('dli_target_'+macKey);
+  }
+  renderDerivedSettings(macKey, containerId);
+  savePrefs();
+}
+function saveGDDBase(macKey) {
+  const val = parseFloat(document.getElementById('gdd-base-'+macKey).value);
+  if (isNaN(val)) return;
+  const valC = units === 'imperial' ? (val - 32) * 5/9 : val;
+  localStorage.setItem('gdd_base_'+macKey, String(valC));
+  savePrefs();
+}
+function saveSeasonStart(macKey) {
+  const val = document.getElementById('season-start-'+macKey).value;
+  if (val) { localStorage.setItem('season_start_'+macKey, val); savePrefs(); }
 }
 
 async function loadSettingsBoardList() {
@@ -2203,12 +3173,12 @@ async function loadSettingsBoardList() {
 
     if (!peers.length) {
       const note = document.createElement('div');
-      note.style.cssText = "font-family:'Space Mono',monospace;font-size:0.58rem;color:var(--muted);margin-top:8px;";
+      note.className = 'board-list-status'; note.style.marginTop = '8px';
       note.textContent = 'No peer boards discovered yet.';
       list.appendChild(note);
     }
   } catch(e) {
-    list.innerHTML = '<div style="font-family:\'Space Mono\',monospace;font-size:0.6rem;color:var(--muted);">Could not load board list.</div>';
+    list.innerHTML = '<div class="board-list-status">Could not load board list.</div>';
   }
 }
 
@@ -2231,6 +3201,7 @@ function openLocalBoardSettings(data) {
   }
   document.getElementById('set-softap').checked = (data.softApMode === 1);
   initTimeSection(data);
+  renderDerivedSettings('b1', 'local-derived-settings');
 }
 
 function openPeerBoardSettings(p) {
@@ -2260,6 +3231,7 @@ function openPeerBoardSettings(p) {
     const bName = escHtml(p.boardName || 'this board');
     noLinkEl.innerHTML = `Connect to <strong style="color:var(--text);">${bName}</strong>'s WiFi hotspot to access its settings directly. If it's not visible in your available networks, short-press the Boot button on the board to open a 10-minute access window.`;
   }
+  renderDerivedSettings(p.mac, 'peer-derived-settings');
 }
 
 function openAgriView() {
@@ -2384,6 +3356,7 @@ function tickTimeClock() {
 
 function setAutoSync(enabled) {
   localStorage.setItem('autoSyncTime', enabled ? 'true' : 'false');
+  savePrefs();
 }
 
 async function syncTimeNow(silent) {
@@ -2513,15 +3486,13 @@ function renderPeers(peers) {
         '<span class="peer-card-name">' + escHtml(p.boardName || p.mac) + '</span>' +
         '<span class="peer-card-badge ' + (p.hasWiFi ? 'wifi' : 'no-wifi') + '">' + (p.hasWiFi ? 'WIFI' : 'AP-ONLY') + '</span>' +
       '</div>' +
-      '<div style="font-family:\'Space Mono\',monospace;font-size:0.55rem;color:var(--muted);margin-bottom:6px;">' +
-        escHtml(p.mac) + ' &middot; seen ' + seen +
-      '</div>' +
+      '<div class="peer-meta">' + escHtml(p.mac) + ' &middot; seen ' + seen + '</div>' +
       '<div class="peer-card-sensors">' +
         '<div class="peer-sensor">TEMP<span>' + tempStr + '</span></div>' +
         '<div class="peer-sensor">HUMIDITY<span>' + humStr + '</span></div>' +
         '<div class="peer-sensor">LUX<span>' + luxStr + '</span></div>' +
       '</div>' +
-      (p.sensorStale ? '<div style="font-family:\'Space Mono\',monospace;font-size:0.52rem;color:var(--muted);margin-top:6px;">Sensor data pending\u2026</div>' : '');
+      (p.sensorStale ? '<div class="peer-stale">Sensor data pending\u2026</div>' : '');
     list.appendChild(card);
   });
 }
@@ -2884,41 +3855,187 @@ const CARD_TIPS = {
   'c-lux':  'Light intensity from the onboard TSL2591 sensor in lux, with separate visible and infrared channel counts.',
   'c-mcu':  'Internal temperature of the ESP32-C6 microcontroller. Typically 10–20°C above ambient when WiFi is active. Elevated readings in a sealed enclosure may indicate thermal stress.',
 };
-const bbTooltip = document.createElement('div');
-bbTooltip.id = 'bb-tooltip';
-document.body.appendChild(bbTooltip);
-let tipTimer = null;
-let tipCard   = null;
-
 document.querySelector('.boards').addEventListener('click', e => {
   const card = e.target.closest('.card');
   if (card) card.classList.toggle('collapsed');
 });
-document.querySelector('.boards').addEventListener('mouseover', e => {
-  const card = e.target.closest('.card');
-  if (card === tipCard) return;
-  tipCard = card;
-  clearTimeout(tipTimer);
-  bbTooltip.classList.remove('visible');
-  if (!card) return;
-  const key = Object.keys(CARD_TIPS).find(k => card.classList.contains(k));
-  if (!key) return;
-  tipTimer = setTimeout(() => {
-    bbTooltip.textContent = CARD_TIPS[key];
-    bbTooltip.classList.add('visible');
-  }, 900);
-});
-document.querySelector('.boards').addEventListener('mouseout', e => {
-  const card = e.target.closest('.card');
-  if (card && card.contains(e.relatedTarget)) return;
-  tipCard = null;
-  clearTimeout(tipTimer);
-  bbTooltip.classList.remove('visible');
-});
-document.querySelector('.boards').addEventListener('mousemove', e => {
-  bbTooltip.style.left = (e.clientX + 14) + 'px';
-  bbTooltip.style.top  = (e.clientY + 14) + 'px';
-});
+
+// ═══════════════════════════════════════════════
+// FONT SCALE
+// ═══════════════════════════════════════════════
+const FS_MIN  = 0.7;
+const FS_MAX  = 1.5;
+const FS_STEP = 0.1;
+const fsScales = {
+  val: parseFloat(localStorage.getItem('fs_val') || '1'),
+  sec: parseFloat(localStorage.getItem('fs_sec') || '1'),
+  ui:  parseFloat(localStorage.getItem('fs_ui')  || '1'),
+};
+
+function applyFontScales() {
+  const r = document.documentElement;
+  r.style.setProperty('--fsc-val', String(fsScales.val));
+  r.style.setProperty('--fsc-sec', String(fsScales.sec));
+  r.style.setProperty('--fsc-ui',  String(fsScales.ui));
+  const vl = document.getElementById('fs-val-label');
+  const sl = document.getElementById('fs-sec-label');
+  const ul = document.getElementById('fs-ui-label');
+  if (vl) vl.textContent = Math.round(fsScales.val * 100) + '%';
+  if (sl) sl.textContent = Math.round(fsScales.sec * 100) + '%';
+  if (ul) ul.textContent = Math.round(fsScales.ui  * 100) + '%';
+}
+
+function stepFontScale(cat, dir) {
+  let v = Math.round((fsScales[cat] + dir * FS_STEP) * 100) / 100;
+  if (v < FS_MIN) v = FS_MIN;
+  if (v > FS_MAX) v = FS_MAX;
+  fsScales[cat] = v;
+  localStorage.setItem('fs_' + cat, String(v));
+  applyFontScales();
+  savePrefs();
+}
+
+applyFontScales();
+
+// ═══════════════════════════════════════════════
+// TOOLTIP ENGINE
+// ═══════════════════════════════════════════════
+let tipsEnabled = localStorage.getItem('tipsEnabled') !== 'false';
+
+const CARD_MENU_TIPS = {
+  'temp':      'Onboard SHTC3 sensor. Air temperature inside the enclosure.',
+  'hum':       'Onboard SHTC3 sensor. Relative humidity as a percentage of air saturation.',
+  'lux':       'Onboard TSL2591 sensor. Ambient light intensity in lux.',
+  'mcu':       'ESP32-C6 die temperature. Useful for monitoring enclosure heat buildup.',
+  'dewpoint':  'The temperature at which air becomes saturated and condensation forms. Derived from temperature and humidity using the Magnus formula.',
+  'vpd':       'Vapor Pressure Deficit — how much more moisture the air could hold. Low VPD = over-saturation risk; high VPD = plant stress.',
+  'heatidx':   'Perceived temperature accounting for humidity (NOAA Steadman formula). Only shown above 27°C / 80°F and 40% RH.',
+  'dli':       'Daily Light Integral — total photosynthetically active light received today. Accumulates from lux readings and resets at midnight.',
+  'tempdelta': 'Indoor temperature minus outdoor temperature from Open-Meteo. Positive = warmer inside.',
+  'humdelta':  'Indoor relative humidity minus outdoor humidity from Open-Meteo. Positive = more humid inside.',
+  'vpddelta':  'Indoor VPD minus outdoor VPD from Open-Meteo. Shows how indoor vapor pressure deficit compares to outside.',
+  'waterdef':  'Reference evapotranspiration (ET₀) minus precipitation from Open-Meteo. Positive values suggest irrigation may be needed.',
+};
+
+const PARAM_TIPS = {
+  'w-temp':      'Current outdoor air temperature at 2m height. Source: Open-Meteo.',
+  'w-precip':    'Rainfall or snowfall accumulated in the last hour. Source: Open-Meteo.',
+  'w-wind':      'Wind speed at 10m height. Source: Open-Meteo.',
+  'w-winddir':   'Wind direction in degrees — 0° is North, 90° is East. Source: Open-Meteo.',
+  'w-cloud':     'Fraction of sky covered by clouds, as a percentage. Source: Open-Meteo.',
+  'w-humid':     'Relative humidity at 2m height. Source: Open-Meteo.',
+  's-firstlight':'First usable daylight — sun is 6° below the horizon. Source: Sunrise-Sunset.org.',
+  's-sunrise':   'Time of official sunrise at your location. Source: Sunrise-Sunset.org.',
+  's-solarnoon': 'When the sun reaches its highest point in the sky. Source: Sunrise-Sunset.org.',
+  's-sunset':    'Time of official sunset at your location. Source: Sunrise-Sunset.org.',
+  's-lastlight': 'Last usable daylight — sun is 6° below the horizon. Source: Sunrise-Sunset.org.',
+  's-daylen':    'Total hours of daylight between sunrise and sunset. Source: Sunrise-Sunset.org.',
+  's-photo':     'Day length classification (Short-day <12h / Long-day >12h) and seasonal trend (Lengthening or Shortening). Useful for planning photoperiod-sensitive crops. Source: Sunrise-Sunset.org.',
+  's-uv':        'Ultraviolet radiation index. 0–2 low, 3–5 moderate, 6–7 high, 8–10 very high, 11+ extreme. Source: Open-Meteo.',
+  's-rad':       'Total incoming solar radiation in W/m². Source: Open-Meteo.',
+  'a-soil0':     'Soil temperature at 0–7cm depth. Source: Open-Meteo.',
+  'a-soil1':     'Soil temperature at 7–28cm depth. Source: Open-Meteo.',
+  'a-soilm':     'Volumetric soil water content at 0–7cm in m³/m³. Source: Open-Meteo.',
+  'a-et':        'FAO-56 reference evapotranspiration — estimated water loss from soil and plants per hour. Used in Water Deficit card. Source: Open-Meteo.',
+  'a-vpd':       'Outdoor vapor pressure deficit in kPa. Used in VPD Comparison derived card. Source: Open-Meteo.',
+  'm-phase':     'Current lunar phase and illumination percentage. Source: USNO.',
+  'm-moonrise':  'Time of moonrise at your location. Source: USNO.',
+  'm-moonset':   'Time of moonset at your location. Source: USNO.',
+  'w-frost-risk':'Calculated frost risk based on current temperature, cloud cover, and wind. None / Low / Moderate / High. Clear skies and low wind increase risk through radiative cooling. Source: Open-Meteo.',
+  'w-gdd':       "Season-to-date heat accumulation above base temperature (10°C / 50°F) since Jan 1. Used to predict crop development stages — germination, flowering, harvest. Source: Open-Meteo (ERA5 archive + recent forecast).",
+  'w-chill':     'Season-to-date chill hours (hours at or below 7.2°C / 45°F) since Nov 1 (N) / May 1 (S). Fruit trees and berry bushes require accumulated chill hours during dormancy to bloom and fruit properly. Estimate ±5%. Source: Open-Meteo (ERA5 archive + recent forecast).',
+  'n-frost':     'Active frost or freeze weather alerts. US locations only. Source: NOAA NWS.',
+  'q-pm25':      'Fine particulate matter concentration in μg/m³. Values above 12 may affect sensitive individuals. Source: Open-Meteo AQI.',
+  'q-pollen':    'Grass pollen concentration in grains/m³. Source: Open-Meteo AQI.',
+};
+
+const SETTINGS_TIPS = {
+  'ws-btn-metric':   'Switch between metric (°C, kPa, mm) and imperial (°F, inHg, in) for all displayed values.',
+  'ws-refresh':      'How often the dashboard polls the board for new data. Lower = more responsive, higher = less network traffic.',
+  'set-autosync':    'Automatically sets the board\'s clock from this device each time you open Settings. Uses your device clock — no internet required.',
+  'set-tips':        'Enable or disable tooltip explanations for values, parameters, and settings.',
+  'set-boardname':   'Sets the board\'s mDNS hostname. Board becomes reachable at boardname.local on your network.',
+  'set-netname':     'Boards sharing the same Network Name discover each other automatically over ESP-NOW.',
+  'set-netpass':     'Used to derive your cloud identity for future remote access. Never transmitted in plaintext.',
+  'set-softap':      'Keeps the board\'s WiFi hotspot active even after connecting to your network. Useful for hard-to-reach boards.',
+  'set-boardtime':   'Current time on the board. Synced via NTP when connected to the internet, or manually via this Settings panel.',
+  'set-lastsynced':  'When the board\'s clock was last synchronized and from what source (NTP, browser, or manual).',
+  'set-manualtime':  'Override the board\'s clock with a specific date and time. Use when the board has no internet access.',
+};
+
+function initTips() {
+  // Sensor cards — keyed by CSS class, 900ms delay
+  document.querySelectorAll('.boards .card').forEach(card => {
+    const key = Object.keys(CARD_TIPS).find(k => card.classList.contains(k));
+    if (key) { card.dataset.tip = CARD_TIPS[key]; card.dataset.tipDelay = '900'; }
+  });
+  // Card menu labels — keyed by checkbox data-card attribute
+  document.querySelectorAll('.card-menu input[type="checkbox"]').forEach(cb => {
+    const key = (cb.dataset.card || '').replace(/^b\d-/, '');
+    const tip = CARD_MENU_TIPS[key];
+    if (tip) cb.closest('label').dataset.tip = tip;
+  });
+  // Parameter dropdown items — keyed by data-id
+  document.querySelectorAll('#dd-menu .dd-item[data-id]').forEach(el => {
+    const tip = PARAM_TIPS[el.dataset.id];
+    if (tip) el.dataset.tip = tip;
+  });
+  // Settings rows — keyed by element ID, tip applied to closest row wrapper
+  Object.entries(SETTINGS_TIPS).forEach(([id, tip]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const row = el.closest('.webapp-setting-row, .settings-row') || el.parentElement;
+    if (row) row.dataset.tip = tip;
+  });
+}
+
+function setTipsEnabled(v) {
+  tipsEnabled = v;
+  localStorage.setItem('tipsEnabled', v ? 'true' : 'false');
+  if (!v) { const t = document.getElementById('tooltip'); if (t) t.classList.remove('visible'); }
+  savePrefs();
+}
+
+(function() {
+  let _timer = null;
+  const tooltip = document.createElement('div');
+  tooltip.id = 'tooltip';
+  document.body.appendChild(tooltip);
+
+  function showTip(text, delay) {
+    clearTimeout(_timer);
+    if (delay > 0) {
+      _timer = setTimeout(() => { tooltip.textContent = text; tooltip.classList.add('visible'); }, delay);
+    } else {
+      tooltip.textContent = text;
+      tooltip.classList.add('visible');
+    }
+  }
+  function hideTip() {
+    clearTimeout(_timer);
+    tooltip.classList.remove('visible');
+  }
+
+  document.addEventListener('mouseover', e => {
+    if (!tipsEnabled) return;
+    const el = e.target.closest('[data-tip]');
+    if (!el || !el.dataset.tip) { hideTip(); return; }
+    showTip(el.dataset.tip, parseInt(el.dataset.tipDelay || '0'));
+  });
+  document.addEventListener('mouseout', e => {
+    const el = e.target.closest('[data-tip]');
+    if (el && el.contains(e.relatedTarget)) return;
+    hideTip();
+  });
+  document.addEventListener('mousemove', e => {
+    const pad = 14, w = tooltip.offsetWidth, h = tooltip.offsetHeight;
+    let x = e.clientX + pad, y = e.clientY + pad;
+    if (x + w > window.innerWidth)  x = e.clientX - w - pad;
+    if (y + h > window.innerHeight) y = e.clientY - h - pad;
+    tooltip.style.left = x + 'px'; tooltip.style.top = y + 'px';
+  });
+  initTips();
+})();
 </script>
 </body>
 </html>

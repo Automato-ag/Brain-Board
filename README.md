@@ -107,6 +107,9 @@ The Brain Board serves a complete webapp directly from its own flash memory — 
 | `/remote-scan` | POST/GET | Peer I2C scan via ESP-NOW |
 | `/time` | POST | Set board time from browser |
 | `/settings` | POST | Save board name / Network Name / password |
+| `/proxy` | GET | HTTPS relay — board fetches external API on browser's behalf (`?url=`); allowlisted domains only |
+| `/prefs` | GET | Read dashboard preferences from LittleFS (`/prefs.json`) |
+| `/prefs` | POST | Write dashboard preferences JSON to LittleFS |
 | `/setup` | GET/POST | WiFi provisioning form |
 | `/wifi/reset` | POST | Clear WiFi credentials + reboot |
 | `/update` | GET | OTA update UI |
@@ -115,18 +118,24 @@ The Brain Board serves a complete webapp directly from its own flash memory — 
 
 ### Agri Data Sidebar
 
-All external API calls are browser-side — the board serves only the dashboard HTML and `/data` endpoint. No data leaves the board.
+External API calls are routed through the board's `/proxy` endpoint so they work when connected to the board's SoftAP (phone in the field with no direct internet). All sources are free and require no API keys.
 
 Data sources can be enabled or disabled individually from **Settings → Agri Data Sources**.
 
 | Parameter Group | Source |
 |---|---|
-| Weather, Wind, Cloud Cover | Open-Meteo |
+| Weather, Wind, Cloud Cover, Outdoor Humidity | Open-Meteo |
 | Solar, UV Index, Shortwave Radiation | Open-Meteo |
 | First Light, Sunrise, Solar Noon, Sunset, Day Length | Sunrise-Sunset.org |
-| Soil Temperature and Moisture, ET0, VPD | Open-Meteo |
-| Moon Phase, Moonrise, Moonset | Sunrise-Sunset.org |
+| Soil Temperature and Moisture, ET₀, VPD | Open-Meteo |
+| Frost Risk (derived) | Open-Meteo (radiative cooling model) |
+| Growing Degree Days — season to date (derived) | Open-Meteo + ERA5 archive |
+| Chill Hours — season to date (derived) | Open-Meteo + ERA5 archive |
+| Photoperiod — day length classification (derived) | Sunrise-Sunset.org |
+| Moon Phase, Moonrise, Moonset | USNO + Sunrise-Sunset.org |
+| NWS Frost Alerts | NOAA National Weather Service |
 | PM2.5, Pollen | Open-Meteo Air Quality |
+| DLI Accumulator (onboard sensor) | TSL2591 lux — accumulated in firmware |
 
 ---
 

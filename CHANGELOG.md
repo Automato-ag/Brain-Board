@@ -4,6 +4,56 @@ All notable changes to Brain Board firmware are documented here.
 
 ---
 
+## v1.1 — 2026-04-05
+
+Two-board hardware test confirmed 2026-03-28. All items below shipped and tested.
+
+### Firmware (`BrainBoard_v110.ino`)
+
+- **Unified firmware** — `BrainBoard_Host` and `BrainBoard_Remote` merged into single `BrainBoard` firmware; all boards are identical peers; role (gateway / relay / isolated) determined dynamically at runtime
+- **MSG_HELLO beacon** — boards broadcast Network Name + board name + MAC + hasWiFi on startup and periodically; matching boards auto-register as ESP-NOW peers without manual MAC entry
+- **Dynamic gateway election** — board with active WiFi router connection becomes gateway; strongest RSSI wins if multiple candidates; transfers automatically when boards move
+- **`networkname.local` mDNS** — gateway advertises Automato Network Name as mDNS hostname; user bookmark works regardless of which physical board is currently gateway
+- **1-hop relay** — non-WiFi boards seek mesh channel via channel scan, lock on first matching MSG_HELLO, relay sensor data to gateway via ESP-NOW
+- **NTP time sync** — gateway syncs time on WiFi connect; `POST /time` endpoint allows browser to sync board time
+- **Plugin hook architecture** — `customSetup()`, `customLoop()`, `customDataJSON()` weak functions; user adds `custom.ino` to sketch folder without modifying base firmware
+- **`/proxy` endpoint** — board-side HTTPS relay for external API calls; 7-domain allowlist (Open-Meteo forecast + ERA5 archive, Geocoding, AQI, Sunrise-Sunset, USNO, NWS); enables agri data when browser has no direct internet (SoftAP field access)
+- **`/peers` endpoint** — returns full peer list as JSON including board names, MACs, roles, RSSI, and last-seen timestamps
+- **`/prefs` GET/POST** — LittleFS-backed dashboard preference storage; dual-write to NVS as backup (survives LittleFS uploads); GET auto-restores from NVS if file missing
+- **SoftAP captive portal fix** — `onNotFound` redirects to `/` (dashboard) when provisioned; `/setup` when not yet provisioned; phone connecting to board SoftAP in the field auto-opens dashboard
+- **SoftAP password** — `WiFi.softAP()` called with Network Password; SoftAP is secured when Network Password is set
+
+### Webapp (`data/index.html`)
+
+**Dashboard**
+- Board role indicator (Gateway / Relay / Isolated) in tab nav bar
+- Board 2 column populated from `/peers` response — board name, sensor readings, link status, last-seen timestamp
+- Card visibility per board — toggle individual sensor cards on/off; persisted to `/prefs`
+
+**Settings tab redesign** — three-level navigation:
+- Display & Behavior: units toggle (metric/imperial), refresh rate selector (2.5/5/10/30s), auto-sync time on connect, font scale controls, tooltip toggle
+- Agri Data Sources: per-source and per-parameter enable/disable with bulk checkboxes
+- Board Settings: master-detail layout; local board editable; peer board read-only; DLI crop preset selector and GDD/chill season settings per board
+
+**Network tab** — live peer map; board roles, relay paths, gateway address, WiFi status
+
+**Agri Data sidebar — all phases:**
+- Phase 1: weather (temp, precipitation, wind, cloud cover, humidity)
+- Phase 2: solar (UV, shortwave, sunrise/sunset/day length, first/last light, solar noon)
+- Phase 3: soil (temperature 0–7cm / 7–28cm, moisture, ET₀, VPD)
+- Phase 4: moon phase, moonrise/moonset (USNO + Sunrise-Sunset.org); NWS frost/freeze alerts
+- Phase 5a: Frost Risk (derived — radiative cooling model from temp + cloud cover + wind); Photoperiod (derived — day length classification + seasonal trend)
+- Phase 5b: Growing Degree Days (season-to-date since Jan 1, base 10°C / 50°F, ERA5 archive + recent forecast bridge); Chill Hours (season-to-date since Nov 1 / May 1, asymmetric linear temperature model ±5%)
+- DLI Accumulator — accumulated daily light integral from TSL2591 lux sensor; 30+ crop presets with DLI target ranges; user-defined custom presets; progress shown as percentage of daily target
+
+**Preferences persistence (`/prefs`)**
+- Board is source of truth; localStorage is write-through cache and offline fallback
+- Persisted: location, active agri params, units, refresh rate, auto-sync, font scales, tooltip toggle, per-source enabled state, card visibility per board, DLI crop preset/target/user presets, GDD base temperature, season start date
+- `proxyFetch()` — tries `/proxy` first; falls back to direct browser fetch if board has no internet (desktop use case)
+- `externalFetchDone` flag — chips show `—` instead of `Loading…` when all fetches complete with no data
+
+---
+
 ## Host Firmware
 
 ### v0.8.1 — Hardware

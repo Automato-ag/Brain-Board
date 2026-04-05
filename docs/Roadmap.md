@@ -123,7 +123,7 @@ Base Firmware
 | v0.8.1 | Tab nav shell, I2C Scanner tab, `/i2c-scan` endpoint | ✅ complete |
 | v0.9 | Devices tab + remote I2C scan via ESP-NOW + Automato Network Name | ✅ complete |
 | v1.0 | Settings tab (functional) + Network tab (stub) + `POST /settings` endpoint | ✅ complete |
-| v1.1 | ESP-NOW mesh: MSG_HELLO beacon, unified firmware, dynamic gateway, `networkname.local`, 1-hop relay, live Network tab peer map + plugin hooks | next |
+| v1.1 | ESP-NOW mesh: MSG_HELLO beacon, unified firmware, dynamic gateway, `networkname.local`, 1-hop relay, live Network tab peer map + plugin hooks | ✅ complete |
 | v1.2 | Rules tab: firmware rule engine, LittleFS rule storage, local + peer sensor conditions, relay actions + recipe database | post-v1.1 |
 | v1.3 | Multi-hop relay + routing tables + full peer equality + cross-board rule conditions | post-v1.2 |
 
@@ -152,25 +152,31 @@ Base Firmware
 - `POST /settings` endpoint: saves board name, Network Name, and password to NVS without requiring WiFi credentials (unlike `POST /setup` which requires `ssid`)
 - Stable 5-tab layout established: Dashboard · Devices · Rules · Settings · Network
 
-### v1.1 Scope — Next
+### v1.1 Scope — Complete ✅
 
-- **Unified firmware:** `BrainBoard_Host` and `BrainBoard_Remote` merge into single `BrainBoard` firmware — all boards are full peers
+Two-board hardware test confirmed 2026-03-28.
+
+- **Unified firmware:** `BrainBoard_Host` and `BrainBoard_Remote` merged into single `BrainBoard` firmware — all boards are full peers
 - **MSG_HELLO beacon:** boards broadcast Network Name + board name + MAC + hasWiFi on startup and periodically; matching boards auto-register as ESP-NOW peers
 - **Dynamic gateway election:** board with active WiFi router connection = gateway; changes automatically when boards move; strongest RSSI wins if multiple candidates
 - **`networkname.local` mDNS:** gateway advertises Network Name as mDNS hostname (e.g., `southknox.local`); user bookmark works regardless of which board is gateway
-- **1-hop relay:** boards out of WiFi range relay sensor data through nearest ESP-NOW peer; commands relay back the same path
+- **1-hop relay:** boards out of WiFi range relay sensor data through nearest ESP-NOW peer
 - **Network tab (live):** peer map showing all discovered boards, their roles, relay paths, and WiFi status
 - **Plugin hook architecture:** `customSetup()`, `customLoop()`, `customDataJSON()` weak functions in base firmware; user adds `custom.ino` to sketch folder
+- **SoftAP captive portal:** `onNotFound` redirects to `/` (dashboard) when provisioned, `/setup` when not — primary phone access method for field use
+- **`/proxy` endpoint:** board-side HTTPS relay for external API calls; allowlisted domains only; enables agri data on SoftAP without direct browser internet access
+- **`/prefs` endpoint:** LittleFS-backed preference persistence with NVS backup (survives LittleFS uploads); stores location, active params, units, refresh rate, card visibility, DLI settings, font scale, and more
+- **Agri Data sidebar phases 1–5b:** weather, solar, moon, soil, AQI, NWS alerts, frost risk, photoperiod, growing degree days (season-to-date), chill hours (season-to-date, asymmetric linear model)
 
 ### v1.1 Shippability Checklist
 
-- [ ] Unified firmware — single `BrainBoard.ino` replaces both Host and Remote
-- [ ] MSG_HELLO beacon implemented and tested (2+ boards auto-discover)
-- [ ] Dynamic gateway election tested (gateway transfers when board moves)
-- [ ] `networkname.local` mDNS verified from gateway board
-- [ ] 1-hop relay verified (board out of WiFi range, data reaches dashboard)
-- [ ] Network tab: live peer map populated from beacon data
-- [ ] Plugin hook architecture implemented and documented
+- [x] Unified firmware — single `BrainBoard.ino` replaces both Host and Remote
+- [x] MSG_HELLO beacon implemented and tested (2+ boards auto-discover)
+- [x] Dynamic gateway election tested (gateway transfers when board moves)
+- [x] `networkname.local` mDNS verified from gateway board
+- [x] 1-hop relay verified (board out of WiFi range, data reaches dashboard)
+- [x] Network tab: live peer map populated from beacon data
+- [x] Plugin hook architecture implemented and documented
 
 ### v1.2 Scope
 
@@ -540,9 +546,8 @@ Custom ESP-NOW code, once written, is stable indefinitely.
 | v0.8.1 | Tab nav shell, I2C Scanner tab, `/i2c-scan` endpoint ✅ |
 | v0.9 | Devices tab, remote I2C scan via ESP-NOW, Automato Network Name | ✅ |
 | v1.0 | Settings tab, Network tab stub, `POST /settings` endpoint | ✅ |
-| v1.1 | Unified firmware, MSG_HELLO auto-discovery, dynamic gateway, `networkname.local`, 1-hop relay, plugin hooks |
+| v1.1 | Unified firmware, MSG_HELLO auto-discovery, dynamic gateway, `networkname.local`, 1-hop relay, plugin hooks, /proxy, /prefs, agri sidebar phases 1–5b | ✅ |
 | v1.2 | Rules tab, firmware rule engine, recipe database — stable, shippable |
-| v1.3 | Multi-hop relay, routing tables, full peer equality, cross-board rules |
 | v1.3 | Multi-hop relay, routing tables, full peer equality, cross-board rules |
 
 ---

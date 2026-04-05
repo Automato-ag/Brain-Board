@@ -54,6 +54,8 @@
 #include <LittleFS.h>
 #include <Update.h>
 #include <time.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include "Adafruit_SHTC3.h"
 #include <Adafruit_TSL2591.h>
 #include <SparkFun_TCA9534.h>
@@ -155,6 +157,7 @@ typedef struct {
   bool     shtcOk;
   bool     tslOk;
   uint32_t uptime;     // seconds
+  float    dieTemp;   // ESP32 internal die temperature (°C)
 } SensorBroadcastPayload;
 
 // ─────────────────────────────────────────────
@@ -194,6 +197,7 @@ typedef struct {
   uint16_t visible, infrared;
   bool     shtcOk, tslOk;
   uint32_t sensorUptime;
+  float    dieTemp;
   unsigned long sensorLastUpdated; // millis(), 0 if never received
 
   // I2C scan results
@@ -669,6 +673,7 @@ void sendSensorToGateway() {
   s.shtcOk   = b1_shtcOk;
   s.tslOk    = b1_tslOk;
   s.uptime   = millis() / 1000;
+  s.dieTemp  = b1_dieTemp;
 
   esp_now_send(gatewayMac, (uint8_t*)&s, sizeof(s));
 }
@@ -704,6 +709,7 @@ void onDataReceived(const esp_now_recv_info_t* info, const uint8_t* data, int le
       peers[idx].shtcOk            = s->shtcOk;
       peers[idx].tslOk             = s->tslOk;
       peers[idx].sensorUptime      = s->uptime;
+      peers[idx].dieTemp           = s->dieTemp;
       peers[idx].sensorLastUpdated = millis();
       char ms[18]; macToStr(s->mac, ms, sizeof(ms));
       Serial.printf("Sensor data from %s: %.1f°C  %.1f%%  %.1f lux\n",
@@ -850,8 +856,11 @@ void handlePeers() {
         "\"rssi\":%d,"
         "\"lastSeenMs\":%lu,"
         "\"tempC\":%.2f,\"tempF\":%.2f,\"humidity\":%.2f,\"lux\":%.2f,"
+        "\"visible\":%u,\"infrared\":%u,"
         "\"shtcOk\":%s,\"tslOk\":%s,"
         "\"sensorStale\":%s,"
+        "\"uptime\":%lu,"
+        "\"dieTemp\":%.2f,"
         "\"timeValid\":%s,"
         "\"timeSyncSource\":%u"
       "}",
@@ -862,9 +871,12 @@ void handlePeers() {
       millis() - peers[i].lastSeen,
       peers[i].tempC, peers[i].tempF,
       peers[i].humidity, peers[i].lux,
+      peers[i].visible, peers[i].infrared,
       peers[i].shtcOk ? "true" : "false",
       peers[i].tslOk  ? "true" : "false",
       stale ? "true" : "false",
+      peers[i].sensorUptime,
+      peers[i].dieTemp,
       peers[i].timeValid ? "true" : "false",
       peers[i].timeSyncSource
     );
@@ -1174,6 +1186,91 @@ void handleSetupGet() {
     "</div></body></html>"
   );
   server.send(200, "text/html", html);
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /proxy  GET  (HTTPS relay for webapp agri data fetches)
+// Only forwards to explicitly allowlisted domains.
+// Update PROXY_ALLOWLIST when adding new external data sources.
+// ─────────────────────────────────────────────
+static const char* PROXY_ALLOWLIST[] = {
+  "api.open-meteo.com",
+  "archive-api.open-meteo.com",
+  "geocoding-api.open-meteo.com",
+  "air-quality-api.open-meteo.com",
+  "api.sunrise-sunset.org",
+  "aa.usno.navy.mil",
+  "api.weather.gov"
+};
+static const int PROXY_ALLOWLIST_SIZE = sizeof(PROXY_ALLOWLIST) / sizeof(PROXY_ALLOWLIST[0]);
+
+void handleProxy() {
+  String url = server.arg("url");
+  if (url.length() == 0) { server.send(400, "text/plain", "missing url"); return; }
+  if (!url.startsWith("https://")) { server.send(400, "text/plain", "https only"); return; }
+
+  // Extract hostname (between "https://" and the next "/")
+  int hostStart = 8; // length of "https://"
+  int hostEnd   = url.indexOf('/', hostStart);
+  if (hostEnd < 0) hostEnd = url.length();
+  String host = url.substring(hostStart, hostEnd);
+
+  bool allowed = false;
+  for (int i = 0; i < PROXY_ALLOWLIST_SIZE; i++) {
+    if (host == PROXY_ALLOWLIST[i]) { allowed = true; break; }
+  }
+  if (!allowed) { server.send(403, "text/plain", "domain not allowed"); return; }
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  http.begin(client, url);
+  int code = http.GET();
+  if (code > 0) {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(code, "application/json", http.getString());
+  } else {
+    server.send(502, "text/plain", "upstream fetch failed");
+  }
+  http.end();
+}
+
+// ─────────────────────────────────────────────
+// HTTP: /prefs  GET + POST  (LittleFS /prefs.json)
+// ─────────────────────────────────────────────
+void handlePrefsGet() {
+  if (!LittleFS.exists("/prefs.json")) {
+    // Attempt NVS restore — prefs survive LittleFS uploads this way
+    prefs.begin("automato", true);
+    String backup = prefs.getString("prefsJson", "");
+    prefs.end();
+    if (backup.length() > 0) {
+      File f = LittleFS.open("/prefs.json", "w");
+      if (f) { f.print(backup); f.close(); }
+      server.send(200, "application/json", backup);
+    } else {
+      server.send(200, "application/json", "{}");
+    }
+    return;
+  }
+  File f = LittleFS.open("/prefs.json", "r");
+  if (!f) { server.send(500, "text/plain", "read error"); return; }
+  server.streamFile(f, "application/json");
+  f.close();
+}
+
+void handlePrefsPost() {
+  String body = server.arg("plain");
+  if (body.length() == 0) { server.send(400, "text/plain", "empty body"); return; }
+  File f = LittleFS.open("/prefs.json", "w");
+  if (!f) { server.send(500, "text/plain", "write error"); return; }
+  f.print(body);
+  f.close();
+  // Backup to NVS so prefs survive LittleFS uploads
+  prefs.begin("automato", false);
+  prefs.putString("prefsJson", body);
+  prefs.end();
+  server.send(200, "application/json", "{\"ok\":true}");
 }
 
 // ─────────────────────────────────────────────
@@ -1680,6 +1777,9 @@ void setup() {
   server.on("/relay/status",         handleRelayStatus);
   server.on("/i2c-scan",             handleI2CScan);
   server.on("/remote-scan",          handleRemoteScan);
+  server.on("/proxy",     HTTP_GET,  handleProxy);
+  server.on("/prefs",     HTTP_GET,  handlePrefsGet);
+  server.on("/prefs",     HTTP_POST, handlePrefsPost);
   server.on("/settings",  HTTP_POST, handleSettingsPost);
   server.on("/softap",    HTTP_POST, handleSoftApPost);
   server.on("/setup",     HTTP_GET,  handleSetupGet);
@@ -1691,7 +1791,8 @@ void setup() {
   server.on("/update/filesystem", HTTP_POST,
     handleUpdateFilesystemDone, handleUpdateFilesystem);
   server.onNotFound([](){
-    server.sendHeader("Location", "http://192.168.4.1/setup", true);
+    const char* dest = hasCredentials ? "http://192.168.4.1/" : "http://192.168.4.1/setup";
+    server.sendHeader("Location", dest, true);
     server.send(302, "text/plain", "");
   });
   server.begin();
